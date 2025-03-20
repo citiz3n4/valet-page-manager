@@ -56,18 +56,31 @@
         return !empty($crt);
     }
 
+    function card($name, $link) {
+        return '<div class="col-2">
+                    <div class="card" style="width: 18rem;">
+                        <div class="card-body">
+						    <h5 class="card-title">'.$name.'</h5>
+						    <a href="'.$link.'" class="btn btn-primary">Accéder</a>
+				        </div>
+				    </div>
+				</div>';
+    }
+
 
     foreach(glob('/home/'.$user.'/.config/valet/Sites/*',GLOB_ONLYDIR) as $dir){
         $dir = basename($dir);
+        $link = 'https://'.$dir.'test';
 
         if ($dir != 'accueil') {
-            echo '<div class="col-2"><div class="card" style="width: 18rem;">';
-            echo '<div class="card-body">
-						<h5 class="card-title">'.$dir.'</h5>
-						<a href="https://" class="btn btn-primary">Accéder</a>
-				    </div>
-				</div>
-				</div>';
+            echo card($dir, $link);
+//            echo '<div class="col-2"><div class="card" style="width: 18rem;">';
+//            echo '<div class="card-body">
+//						<h5 class="card-title">'.$dir.'</h5>
+//						<a href="https://" class="btn btn-primary">Accéder</a>
+//				    </div>
+//				</div>
+//				</div>';
         }
 
 	}
