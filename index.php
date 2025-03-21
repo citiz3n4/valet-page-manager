@@ -15,16 +15,27 @@ $domain = '.'.$config->domain;
 
   </head>
   <body>
+  <style>
+      .vl {
+          border-left: 2px solid;
+          height: 30px;
+          color: #6F7378;
+          margin-top: 5px;
+      }
+  </style>
+
     
 <nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
   <div class="container-fluid">
     <div class="collapse navbar-collapse" id="navbarCollapse">
-      <ul class="navbar-nav w-100 mb-2 mb-md-0 d-flex justify-content-between align-items-center">
+<!--      <ul class="navbar-nav w-100 mb-2 mb-md-0 d-flex justify-content-between align-items-center">-->
+      <ul class="navbar-nav w-100 mb-2 mb-md-0">
         <li class="nav-item">
           <a class="nav-link" href="http://phpmyadmin.test">
 			  <img src="http://phpmyadmin.test/favicon.ico" width="16" alt=""> PhpMyAdmin
           </a>
         </li>
+          <div class="vl"></div>
           <li class="nav-item">
               <div class="nav-link pe-none">Actual TLD  : <?= $domain ?></div>
           </li>
@@ -97,22 +108,6 @@ function findFile($dir, $fileName) {
     }
     return false;
 }
-//function findFile($dir, $fileName) {
-//    $results = array();
-//    $files = scandir($dir);
-//    foreach ($files as $file) {
-//        if ($file === '.' || $file === '..') continue;
-//        $path = $dir . '/' . $file;
-//        if (is_dir($path)) {
-//            $results = array_merge($results, findFile($path, $fileName));
-//        } else {
-//            if (strcasecmp($file, $fileName) === 0) {
-//                $results[] = $path;
-//            }
-//        }
-//    }
-//    return $results;
-//}
 
 class Link {
     public bool $secure = false;
