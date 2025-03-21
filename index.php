@@ -73,7 +73,7 @@
             <?php else: ?>
                 <div class="card mb-4">
                     <div class="card-body">
-                        <h5 class="card-title">Park links</h5>
+                        <h5 class="card-title">Park links : <?= $path ?></h5>
                         <div class="row">
                             <?php
                             foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
@@ -139,4 +139,5 @@ class Link {
 				    </div>
 				</div>';
     }
+
 }
