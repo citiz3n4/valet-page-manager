@@ -1,3 +1,9 @@
+<?php
+$user = exec('whoami');
+$config = file_get_contents("/home/$user/.config/valet/config.json");
+$config = json_decode($config);
+$domain = '.'.$config->domain;
+?>
 <!doctype html>
 <html lang="en">
   <head>
@@ -33,12 +39,15 @@
 <nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
   <div class="container-fluid">
     <div class="collapse navbar-collapse" id="navbarCollapse">
-      <ul class="navbar-nav me-auto mb-2 mb-md-0">
+      <ul class="navbar-nav w-100 mb-2 mb-md-0 d-flex justify-content-between align-items-center">
         <li class="nav-item">
           <a class="nav-link" href="http://phpmyadmin.test">
-			  <img src="http://phpmyadmin.test/favicon.ico" width="16">
+			  <img src="http://phpmyadmin.test/favicon.ico" width="16" alt=""> PhpMyAdmin
           </a>
         </li>
+          <li class="nav-item">
+              <div class="nav-link pe-none">Actual TLD  : <?= $domain ?></div>
+          </li>
       </ul>
     </div>
   </div>
@@ -46,13 +55,6 @@
 
 <main class="container">
 	<div class="row">
-	
-	<?php
-    $user = exec('whoami');
-    $config = file_get_contents("/home/$user/.config/valet/config.json");
-    $config = json_decode($config);
-    $domain = '.'.$config->domain;
-    ?>
         <?php foreach ($config->paths as $path): ?>
             <?php if (basename($path) == 'Sites'): ?>
                 <div class="card mb-4">
