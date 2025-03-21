@@ -28,17 +28,9 @@ $domain = '.'.$config->domain;
 <nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
   <div class="container-fluid">
     <div class="collapse navbar-collapse" id="navbarCollapse">
-<!--      <ul class="navbar-nav w-100 mb-2 mb-md-0 d-flex justify-content-between align-items-center">-->
       <ul class="navbar-nav w-100 mb-2 mb-md-0">
-        <li class="nav-item">
-          <a class="nav-link" href="http://phpmyadmin.test">
-			  <img src="http://phpmyadmin.test/favicon.ico" width="16" alt=""> PhpMyAdmin
-          </a>
-        </li>
-          <div class="vl"></div>
-          <li class="nav-item">
-              <div class="nav-link pe-none">Actual TLD  : <?= $domain ?></div>
-          </li>
+          <?= Nav::itemButton('http://phpmyadmin.test', 'PhpMyAdmin') ?>
+          <?= Nav::item('Actual TLD : '.$domain) ?>
       </ul>
     </div>
   </div>
@@ -90,7 +82,7 @@ $domain = '.'.$config->domain;
   </body>
 </html>
 <?php
-function findFile($dir, $fileName) {
+function findFile($dir, $fileName) : bool {
     $files = scandir($dir);
     foreach ($files as $file) {
         if ($file === '.' || $file === '..') continue;
@@ -151,4 +143,22 @@ class Link {
 				</div>';
     }
 
+}
+class Nav {
+
+    public static function itemButton($link, $name) : string {
+        return '<li class="nav-item">
+                    <a class="nav-link" href="'.$link.'">
+		            	  '.$name.'
+                    </a>
+                </li>
+                <div class="vl"></div>';
+    }
+    public static function item($name) : string {
+        return '<li class="nav-item">
+                    <div class="nav-link pe-none">'.$name.'</div>
+                </li>
+                <div class="vl"></div>';
+
+    }
 }
