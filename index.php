@@ -60,9 +60,11 @@ $domain = '.'.$config->domain;
                             <?php
                             foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
                                 if ($dir.$domain != $_SERVER['HTTP_HOST']) {
-                                    $dir = basename($dir);
-                                    $link = new Link($dir);
-                                    echo $link->card();
+                                    if (findFile($dir, 'index.php')) {
+                                        $dir = basename($dir);
+                                        $link = new Link($dir);
+                                        echo $link->card();
+                                    }
                                 }
                             }?>
                         </div>
@@ -77,6 +79,41 @@ $domain = '.'.$config->domain;
   </body>
 </html>
 <?php
+function findFile($dir, $fileName) {
+    $files = scandir($dir);
+    foreach ($files as $file) {
+        if ($file === '.' || $file === '..') continue;
+        $path = $dir . '/' . $file;
+        if (is_dir($path)) {
+            $result = findFile($path, $fileName);
+            if ($result) {
+                return true;
+            }
+        } else {
+            if (strcasecmp($file, $fileName) === 0) {
+                return true;
+            }
+        }
+    }
+    return false;
+}
+//function findFile($dir, $fileName) {
+//    $results = array();
+//    $files = scandir($dir);
+//    foreach ($files as $file) {
+//        if ($file === '.' || $file === '..') continue;
+//        $path = $dir . '/' . $file;
+//        if (is_dir($path)) {
+//            $results = array_merge($results, findFile($path, $fileName));
+//        } else {
+//            if (strcasecmp($file, $fileName) === 0) {
+//                $results[] = $path;
+//            }
+//        }
+//    }
+//    return $results;
+//}
+
 class Link {
     public bool $secure = false;
     public string $fileName;
