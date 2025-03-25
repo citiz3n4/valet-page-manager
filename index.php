@@ -46,7 +46,7 @@ $domain = '.'.$config->domain;
                         <div class="row">
                             <?php
                             foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
-                                if ($dir.$domain != $_SERVER['HTTP_HOST']) {
+                                if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
                                     $dir = basename($dir);
                                     $link = new Link($dir);
                                     echo $link->card();
@@ -62,7 +62,7 @@ $domain = '.'.$config->domain;
                         <div class="row">
                             <?php
                             foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
-                                if ($dir.$domain != $_SERVER['HTTP_HOST']) {
+                                if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
                                     if (findFile($dir, 'index.php')) {
                                         $dir = basename($dir);
                                         $link = new Link($dir);
