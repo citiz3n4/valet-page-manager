@@ -62,7 +62,7 @@ if (isset($_POST['unlink'])) {
                                     $dir = basename($dir);
                                     $link = new Link($dir);
                                     if (!$link->isExcluded()){
-                                        echo $link->card();
+                                        echo $link->cardLink();
                                     }
                                 }
                             }?>
@@ -80,7 +80,7 @@ if (isset($_POST['unlink'])) {
                                     $dir = basename($dir);
                                     $link = new Link($dir);
                                     if (!$link->isExcluded()){
-                                        echo $link->card();
+                                        echo $link->cardPark();
                                     }
                                 }
                             }?>
@@ -138,8 +138,7 @@ class Link {
         $crt = glob("/home/$user/.config/valet/Certificates/$fileName.test.crt");
         return !empty($crt);
     }
-    public function card() : string {
-
+    public function cardLink() : string {
         return '<div class="col-3">
                     <div class="card mb-4">
                         <div class="card-body">
@@ -148,8 +147,19 @@ class Link {
 						    '.$this->lock().'
 						    <form action="" method="post" class="d-inline">
 						        <input hidden="hidden" name="unlink" value="'.$this->fileName.'">
-						        <button type="submit" class="btn btn-danger">Unlink</button>
+						        <button type="submit" class="btn btn-warning">Unlink</button>
 						    </form>
+				        </div>
+				    </div>
+				</div>';
+    }
+    public function cardPark() : string {
+        return '<div class="col-3">
+                    <div class="card mb-4">
+                        <div class="card-body">
+						    <h5 class="card-title">'.$this->fileName.'</h5>   
+						    <a target="_blank" href="'.$this->link.'" class="btn btn-primary">Accéder</a>
+						    '.$this->lock().'
 				        </div>
 				    </div>
 				</div>';
