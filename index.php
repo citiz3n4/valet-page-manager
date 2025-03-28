@@ -1,10 +1,6 @@
 <?php
 if (!file_exists('config.json')) {
-    exec('touch config.json');
-    $configJson = fopen('config.json', 'w');
-    fwrite($configJson, json_encode([
-        "exclude" => ["phpmyadmin" ,"phpinfo"],
-    ]));
+    createConfigJson();
 }
 
 $user = exec('whoami');
@@ -93,6 +89,15 @@ $domain = '.'.$config->domain;
   </body>
 </html>
 <?php
+
+function createConfigJson(): void
+{
+    exec('touch config.json');
+    $configJson = fopen('config.json', 'w');
+    fwrite($configJson, json_encode([
+        "exclude" => ["phpmyadmin" ,"phpinfo"],
+    ]));
+}
 
 class Link {
     public bool $secure = false;
