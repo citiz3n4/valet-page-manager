@@ -7,6 +7,13 @@ $user = exec('whoami');
 $config = file_get_contents("/home/$user/.config/valet/config.json");
 $config = json_decode($config);
 $domain = '.'.$config->domain;
+
+if (isset($_POST['unlink'])) {
+    valetUnlink($_POST['unlink']);
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
+
 ?>
 <!doctype html>
 <html lang="en">
@@ -98,6 +105,9 @@ function createConfigJson(): void
         "exclude" => ["phpmyadmin" ,"phpinfo"],
     ]));
 }
+function valetUnlink($project): void {
+    exec('valet unlink '.$project);
+}
 
 class Link {
     public bool $secure = false;
@@ -136,6 +146,10 @@ class Link {
 						    <h5 class="card-title">'.$this->fileName.'</h5>   
 						    <a target="_blank" href="'.$this->link.'" class="btn btn-primary">Accéder</a>
 						    '.$this->lock().'
+						    <form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="unlink" value="'.$this->fileName.'">
+						        <button type="submit" class="btn btn-danger">Unlink</button>
+						    </form>
 				        </div>
 				    </div>
 				</div>';
