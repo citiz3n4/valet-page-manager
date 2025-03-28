@@ -1,7 +1,7 @@
 <?php
 if (!file_exists('config.json')) {
     exec('touch config.json');
-    $configJson = fopen('config.json', 'c+');
+    $configJson = fopen('config.json', 'w');
     fwrite($configJson, json_encode([
         "exclude" => ["phpmyadmin"],
     ]));
@@ -38,6 +38,7 @@ $domain = '.'.$config->domain;
     <div class="collapse navbar-collapse" id="navbarCollapse">
       <ul class="navbar-nav w-100 mb-2 mb-md-0">
           <?= Nav::itemButton('http://phpmyadmin.test', 'PhpMyAdmin') ?>
+          <?= Nav::itemButton('http://phpinfo.test', 'PhpInfo') ?>
           <?= Nav::item('Actual TLD : '.$domain) ?>
       </ul>
     </div>
@@ -134,8 +135,7 @@ class Link {
 				    </div>
 				</div>';
     }
-
-    public function isExcluded()
+    public function isExcluded(): bool
     {
         $config = json_decode(file_get_contents('config.json'));
         foreach ($config->exclude as $excluded) {
@@ -151,7 +151,7 @@ class Nav {
 
     public static function itemButton($link, $name) : string {
         return '<li class="nav-item">
-                    <a class="nav-link" href="'.$link.'">
+                    <a target="_blank" class="nav-link" href="'.$link.'">
 		            	  '.$name.'
                     </a>
                 </li>
