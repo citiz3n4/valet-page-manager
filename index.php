@@ -1,4 +1,12 @@
 <?php
+if (!file_exists('config.json')) {
+    exec('touch config.json');
+    $configJson = fopen('config.json', 'c+');
+    fwrite($configJson, json_encode([
+        "exclude" => ["phpmyadmin"],
+    ]));
+}
+
 $user = exec('whoami');
 $config = file_get_contents("/home/$user/.config/valet/config.json");
 $config = json_decode($config);
@@ -49,7 +57,9 @@ $domain = '.'.$config->domain;
                                 if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
                                     $dir = basename($dir);
                                     $link = new Link($dir);
-                                    echo $link->card();
+                                    if (!$link->isExcluded()){
+                                        echo $link->card();
+                                    }
                                 }
                             }?>
                         </div>
@@ -63,9 +73,9 @@ $domain = '.'.$config->domain;
                             <?php
                             foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
                                 if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
-                                    if (findFile($dir, 'index.php')) {
-                                        $dir = basename($dir);
-                                        $link = new Link($dir);
+                                    $dir = basename($dir);
+                                    $link = new Link($dir);
+                                    if (!$link->isExcluded()){
                                         echo $link->card();
                                     }
                                 }
@@ -82,24 +92,6 @@ $domain = '.'.$config->domain;
   </body>
 </html>
 <?php
-function findFile($dir, $fileName) : bool {
-    $files = scandir($dir);
-    foreach ($files as $file) {
-        if ($file === '.' || $file === '..') continue;
-        $path = $dir . '/' . $file;
-        if (is_dir($path)) {
-            $result = findFile($path, $fileName);
-            if ($result) {
-                return true;
-            }
-        } else {
-            if (strcasecmp($file, $fileName) === 0) {
-                return true;
-            }
-        }
-    }
-    return false;
-}
 
 class Link {
     public bool $secure = false;
@@ -141,6 +133,17 @@ class Link {
 				        </div>
 				    </div>
 				</div>';
+    }
+
+    public function isExcluded()
+    {
+        $config = json_decode(file_get_contents('config.json'));
+        foreach ($config->exclude as $excluded) {
+            if ($excluded == $this->fileName) {
+                return true;
+            }
+        }
+        return false;
     }
 
 }
