@@ -3,7 +3,7 @@ if (!file_exists('config.json')) {
     exec('touch config.json');
     $configJson = fopen('config.json', 'w');
     fwrite($configJson, json_encode([
-        "exclude" => ["phpmyadmin"],
+        "exclude" => ["phpmyadmin" ,"phpinfo"],
     ]));
 }
 
