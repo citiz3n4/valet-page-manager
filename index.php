@@ -1,112 +1,19 @@
 <?php
-if (!file_exists('config.json')) {
-    createConfigJson();
-}
-
+session_start();
 $user = exec('whoami');
-$config = file_get_contents("/home/$user/.config/valet/config.json");
-$config = json_decode($config);
-$domain = '.'.$config->domain;
+$configValet = file_get_contents("/home/$user/.config/valet/config.json");
+$configValet = json_decode($configValet);
+$domain = '.'.$configValet->domain;
+$_SESSION['config'] = isset($_SESSION['config']) ? $_SESSION['config'] : false;
 
-if (isset($_POST['unlink'])) {
-    valetUnlink($_POST['unlink']);
-    header( "Location: http://{$_SERVER['SERVER_NAME']}");
-    exit();
-}
 
-?>
-<!doctype html>
-<html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <title>Valet Page Manager</title>
-    <!-- Bootstrap core CSS -->
-	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
-
-  </head>
-  <body>
-  <style>
-      .vl {
-          border-left: 2px solid;
-          height: 30px;
-          color: #6F7378;
-          margin-top: 5px;
-      }
-  </style>
-
-    
-<nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
-  <div class="container-fluid">
-    <div class="collapse navbar-collapse" id="navbarCollapse">
-      <ul class="navbar-nav w-100 mb-2 mb-md-0">
-          <?= Nav::itemButton('http://phpmyadmin.test', 'PhpMyAdmin') ?>
-          <?= Nav::itemButton('http://phpinfo.test', 'PhpInfo') ?>
-          <?= Nav::item('Actual TLD : '.$domain) ?>
-      </ul>
-    </div>
-  </div>
-</nav>
-
-<main class="container">
-	<div class="row">
-        <?php foreach ($config->paths as $path): ?>
-            <?php if (basename($path) == 'Sites'): ?>
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Links</h5>
-                        <div class="row">
-                            <?php
-                            foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
-                                if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
-                                    $dir = basename($dir);
-                                    $link = new Link($dir);
-                                    if (!$link->isExcluded()){
-                                        echo $link->cardLink();
-                                    }
-                                }
-                            }?>
-                        </div>
-                    </div>
-                </div>
-            <?php else: ?>
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Park links : <?= $path ?></h5>
-                        <div class="row">
-                            <?php
-                            foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
-                                if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
-                                    $dir = basename($dir);
-                                    $link = new Link($dir);
-                                    if (!$link->isExcluded()){
-                                        echo $link->cardPark();
-                                    }
-                                }
-                            }?>
-                        </div>
-                    </div>
-                </div>
-            <?php endif; ?>
-        <?php endforeach; ?>
-	</div>
-</main>
-
-      
-  </body>
-</html>
-<?php
-
-function createConfigJson(): void
-{
-    exec('touch config.json');
-    $configJson = fopen('config.json', 'w');
-    fwrite($configJson, json_encode([
-        "exclude" => ["phpmyadmin" ,"phpinfo"],
-    ]));
-}
 function valetUnlink($project): void {
     exec('valet unlink '.$project);
+}
+
+enum LinkType {
+    case Link;
+    case Park;
 }
 
 class Link {
@@ -114,11 +21,14 @@ class Link {
     public string $fileName;
     public string $link;
 
-    public function __construct($fileName)
+    private LinkType $type;
+
+    public function __construct($fileName,LinkType $type)
     {
         $this->secure = $this->isSecure($fileName);
         $this->fileName = $fileName;
         $this->link = $this->secure ? 'https://'.$this->fileName.'.test' : 'http://'.$this->fileName.'.test';
+        $this->type = $type;
     }
 
     public function lock() : string {
@@ -138,36 +48,41 @@ class Link {
         $crt = glob("/home/$user/.config/valet/Certificates/$fileName.test.crt");
         return !empty($crt);
     }
-    public function cardLink() : string {
-        return '<div class="col-3">
+    public function card() : string {
+        $html = '<div class="col-3">
                     <div class="card mb-4">
                         <div class="card-body">
-						    <h5 class="card-title">'.$this->fileName.'</h5>   
-						    <a target="_blank" href="'.$this->link.'" class="btn btn-primary">Accéder</a>
-						    '.$this->lock().'
-						    <form action="" method="post" class="d-inline">
-						        <input hidden="hidden" name="unlink" value="'.$this->fileName.'">
+						    <h5 class="card-title">'.$this->fileName.'</h5>';
+        if(!$_SESSION['config']) {
+            $html .= '<a target="_blank" href="' . $this->link . '" class="btn btn-primary">Accéder</a>
+						    ' . $this->lock();
+        }elseif($this->isExcluded()) {
+            $html .= '<form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="include" value="' . $this->fileName . '">
+						        <button type="submit" class="btn btn-success">Include</button>
+						    </form>';
+        }else{
+            if($this->type===LinkType::Link) {
+                $html .= '<form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="unlink" value="' . $this->fileName . '">
 						        <button type="submit" class="btn btn-warning">Unlink</button>
-						    </form>
-				        </div>
+						    </form>';
+            }
+            $html .= '<form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="exclude" value="' . $this->fileName . '">
+						        <button type="submit" class="btn btn-warning">Exclude</button>
+						    </form>';
+        }
+        $html.='        </div>
 				    </div>
 				</div>';
+        return $html;
     }
-    public function cardPark() : string {
-        return '<div class="col-3">
-                    <div class="card mb-4">
-                        <div class="card-body">
-						    <h5 class="card-title">'.$this->fileName.'</h5>   
-						    <a target="_blank" href="'.$this->link.'" class="btn btn-primary">Accéder</a>
-						    '.$this->lock().'
-				        </div>
-				    </div>
-				</div>';
-    }
+
     public function isExcluded(): bool
     {
-        $config = json_decode(file_get_contents('config.json'));
-        foreach ($config->exclude as $excluded) {
+
+        foreach (Config::get('exclude') as $excluded) {
             if ($excluded == $this->fileName) {
                 return true;
             }
@@ -178,11 +93,11 @@ class Link {
 }
 class Nav {
 
-    public static function itemButton($link, $name) : string {
+    public static function itemButton($link, $name,$icon=null,$target='_blank') : string {
         return '<li class="nav-item">
-                    <a target="_blank" class="nav-link" href="'.$link.'">
-		            	  '.$name.'
-                    </a>
+                    <a target="'.$target.'" class="nav-link" href="'.$link.'">
+		            	'.(null!==$icon ? '<img src="'.$icon.'" width="32" height="32"> ' : $name).
+            '</a>
                 </li>
                 <div class="vl"></div>';
     }
@@ -194,3 +109,173 @@ class Nav {
 
     }
 }
+
+class Config
+{
+    private static ?array $data=null;
+    private static string $filename='config.json';
+
+    private static function createFile()
+    {
+        if(!file_exists(self::$filename)){
+            self::$data = [
+                'exclude'=>['phpmyadmin','phpinfo'],
+                'headers' => [
+                    ['type'=>'link','link'=>'http://phpmyadmin.test', 'name'=>'PHPMyAdmin','icon'=>'http://phpmyadmin.test/favicon.ico','target'=>'_blank'],
+                    ['type'=>'link','link'=>'http://phpinfo.test', 'name'=>'PHPInfo','target'=>'_blank'],
+                    ['type'=> 'tld']
+                ]
+            ];
+            self::save();
+        }
+    }
+
+    private static function save()
+    {
+        file_put_contents(self::$filename, json_encode(self::$data, JSON_PRETTY_PRINT));
+    }
+
+    public static function initData()
+    {
+        self::$data = json_decode(file_get_contents(self::$filename), true);
+    }
+
+    public static function get($key,$default=null)
+    {
+        if(!file_exists(self::$filename)){
+            self::createFile();
+        }
+
+        if(null==self::$data){
+            self::initData();
+        }
+        return isset(self::$data[$key]) ? self::$data[$key] : $default;
+    }
+
+    public static function exclude($name)
+    {
+        self::initData();
+        self::$data['exclude'][]=$name;
+        self::save();
+    }
+    public static function include($name)
+    {
+        self::initData();
+        self::$data['exclude'] = array_diff(self::$data['exclude'],[$name]);
+        self::save();
+    }
+}
+
+
+if(isset($_GET['config'])){
+    $_SESSION['config'] = isset($_SESSION['config']) ? !$_SESSION['config'] : true ;
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
+
+if (isset($_POST['unlink'])) {
+    valetUnlink($_POST['unlink']);
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
+
+if (isset($_POST['exclude'])) {
+    Config::exclude($_POST['exclude']);
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
+if (isset($_POST['include'])) {
+    Config::include($_POST['include']);
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
+
+?>
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Valet Page Manager</title>
+    <!-- Bootstrap core CSS -->
+	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+      <style>
+          .vl {
+              border-left: 2px solid;
+              height: 30px;
+              color: #6F7378;
+              margin-top: 5px;
+      }
+      </style>
+  </head>
+  <body>
+
+    
+<nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
+  <div class="container-fluid">
+    <div class="collapse navbar-collapse" id="navbarCollapse">
+      <ul class="navbar-nav w-100 mb-2 mb-md-0">
+          <?php
+            foreach(Config::get('headers') as $item)
+            {
+                echo match ($item['type']){
+                    'tld'=>Nav::item('Actual TLD : '.$domain),
+                    default => Nav::ItemButton($item['link'], $item['name'],$item['icon'] ?? null,$item['target']??null)
+                };
+            }
+          ?>
+      </ul>
+        <div class="float-end">
+            <a href=".?config=1" class="btn <?= ($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary' ?>">Config</a>
+        </div>
+    </div>
+  </div>
+</nav>
+
+<main class="container">
+	<div class="row">
+        <?php foreach ($configValet->paths as $path): ?>
+            <?php if (basename($path) == 'Sites'): ?>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Links</h5>
+                        <div class="row">
+                            <?php
+                            foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
+                                if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
+                                    $dir = basename($dir);
+                                    $link = new Link($dir,LinkType::Link);
+                                    if (!$link->isExcluded() || $_SESSION['config'] ) {
+                                        echo $link->card();
+                                    }
+                                }
+                            }?>
+                        </div>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="card mb-4">
+                    <div class="card-body">
+                        <h5 class="card-title">Park links : <?= $path ?></h5>
+                        <div class="row">
+                            <?php
+                            foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
+                                if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
+                                    $dir = basename($dir);
+                                    $link = new Link($dir,LinkType::Park);
+                                    if (!$link->isExcluded() || $_SESSION['config']){
+                                        echo $link->card();
+                                    }
+                                }
+                            }?>
+                        </div>
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php endforeach; ?>
+	</div>
+</main>
+
+      
+  </body>
+</html>
