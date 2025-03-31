@@ -6,6 +6,167 @@ $configValet = json_decode($configValet);
 $domain = '.'.$configValet->domain;
 $_SESSION['config'] = isset($_SESSION['config']) ? $_SESSION['config'] : false;
 
+
+function valetUnlink($project): void {
+    exec('valet unlink '.$project);
+}
+
+enum LinkType {
+    case Link;
+    case Park;
+}
+
+class Link {
+    public bool $secure = false;
+    public string $fileName;
+    public string $link;
+
+    private LinkType $type;
+
+    public function __construct($fileName,LinkType $type)
+    {
+        $this->secure = $this->isSecure($fileName);
+        $this->fileName = $fileName;
+        $this->link = $this->secure ? 'https://'.$this->fileName.'.test' : 'http://'.$this->fileName.'.test';
+        $this->type = $type;
+    }
+
+    public function lock() : string {
+        if ($this->secure) {
+            $html = '<div class="btn btn-success pe-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 448 512"><path d="M144 144l0 48 160 0 0-48c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192l0-48C80 64.5 144.5 0 224 0s144 64.5 144 144l0 48 16 0c35.3 0 64 28.7 64 64l0 192c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 256c0-35.3 28.7-64 64-64l16 0z"/></svg>
+                    </div>';
+        }else{
+            $html = '<div class="btn btn-danger pe-none">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 576 512"><path d="M352 144c0-44.2 35.8-80 80-80s80 35.8 80 80l0 48c0 17.7 14.3 32 32 32s32-14.3 32-32l0-48C576 64.5 511.5 0 432 0S288 64.5 288 144l0 48L64 192c-35.3 0-64 28.7-64 64L0 448c0 35.3 28.7 64 64 64l320 0c35.3 0 64-28.7 64-64l0-192c0-35.3-28.7-64-64-64l-32 0 0-48z"/></svg>
+                    </div>';
+        }
+        return $html;
+    }
+    public function isSecure($fileName) : bool {
+        global $user;
+        $crt = glob("/home/$user/.config/valet/Certificates/$fileName.test.crt");
+        return !empty($crt);
+    }
+    public function card() : string {
+        $html = '<div class="col-3">
+                    <div class="card mb-4">
+                        <div class="card-body">
+						    <h5 class="card-title">'.$this->fileName.'</h5>';
+        if(!$_SESSION['config']) {
+            $html .= '<a target="_blank" href="' . $this->link . '" class="btn btn-primary">Accéder</a>
+						    ' . $this->lock();
+        }elseif($this->isExcluded()) {
+            $html .= '<form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="include" value="' . $this->fileName . '">
+						        <button type="submit" class="btn btn-success">Include</button>
+						    </form>';
+        }else{
+            if($this->type===LinkType::Link) {
+                $html .= '<form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="unlink" value="' . $this->fileName . '">
+						        <button type="submit" class="btn btn-warning">Unlink</button>
+						    </form>';
+            }
+            $html .= '<form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="exclude" value="' . $this->fileName . '">
+						        <button type="submit" class="btn btn-warning">Exclude</button>
+						    </form>';
+        }
+        $html.='        </div>
+				    </div>
+				</div>';
+        return $html;
+    }
+
+    public function isExcluded(): bool
+    {
+
+        foreach (Config::get('exclude') as $excluded) {
+            if ($excluded == $this->fileName) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+}
+class Nav {
+
+    public static function itemButton($link, $name,$icon=null,$target='_blank') : string {
+        return '<li class="nav-item">
+                    <a target="'.$target.'" class="nav-link" href="'.$link.'">
+		            	'.(null!==$icon ? '<img src="'.$icon.'" width="32" height="32"> ' : $name).
+            '</a>
+                </li>
+                <div class="vl"></div>';
+    }
+    public static function item($name) : string {
+        return '<li class="nav-item">
+                    <div class="nav-link pe-none">'.$name.'</div>
+                </li>
+                <div class="vl"></div>';
+
+    }
+}
+
+class Config
+{
+    private static ?array $data=null;
+    private static string $filename='config.json';
+
+    private static function createFile()
+    {
+        if(!file_exists(self::$filename)){
+            self::$data = [
+                'exclude'=>['phpmyadmin','phpinfo'],
+                'headers' => [
+                    ['type'=>'link','link'=>'http://phpmyadmin.test', 'name'=>'PHPMyAdmin','icon'=>'http://phpmyadmin.test/favicon.ico','target'=>'_blank'],
+                    ['type'=>'link','link'=>'http://phpinfo.test', 'name'=>'PHPInfo','target'=>'_blank'],
+                    ['type'=> 'tld']
+                ]
+            ];
+            self::save();
+        }
+    }
+
+    private static function save()
+    {
+        file_put_contents(self::$filename, json_encode(self::$data, JSON_PRETTY_PRINT));
+    }
+
+    public static function initData()
+    {
+        self::$data = json_decode(file_get_contents(self::$filename), true);
+    }
+
+    public static function get($key,$default=null)
+    {
+        if(!file_exists(self::$filename)){
+            self::createFile();
+        }
+
+        if(null==self::$data){
+            self::initData();
+        }
+        return isset(self::$data[$key]) ? self::$data[$key] : $default;
+    }
+
+    public static function exclude($name)
+    {
+        self::initData();
+        self::$data['exclude'][]=$name;
+        self::save();
+    }
+    public static function include($name)
+    {
+        self::initData();
+        self::$data['exclude'] = array_diff(self::$data['exclude'],[$name]);
+        self::save();
+    }
+}
+
+
 if(isset($_GET['config'])){
     $_SESSION['config'] = isset($_SESSION['config']) ? !$_SESSION['config'] : true ;
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
@@ -83,7 +244,7 @@ if (isset($_POST['include'])) {
                             foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
                                 if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
                                     $dir = basename($dir);
-                                    $link = new Link($dir);
+                                    $link = new Link($dir,LinkType::Link);
                                     if (!$link->isExcluded() || $_SESSION['config'] ) {
                                         echo $link->card();
                                     }
@@ -101,7 +262,7 @@ if (isset($_POST['include'])) {
                             foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
                                 if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
                                     $dir = basename($dir);
-                                    $link = new Link($dir);
+                                    $link = new Link($dir,LinkType::Park);
                                     if (!$link->isExcluded() || $_SESSION['config']){
                                         echo $link->card();
                                     }
@@ -118,153 +279,3 @@ if (isset($_POST['include'])) {
       
   </body>
 </html>
-<?php
-
-function valetUnlink($project): void {
-    exec('valet unlink '.$project);
-}
-
-class Link {
-    public bool $secure = false;
-    public string $fileName;
-    public string $link;
-
-    public function __construct($fileName)
-    {
-        $this->secure = $this->isSecure($fileName);
-        $this->fileName = $fileName;
-        $this->link = $this->secure ? 'https://'.$this->fileName.'.test' : 'http://'.$this->fileName.'.test';
-    }
-
-    public function lock() : string {
-        if ($this->secure) {
-            $html = '<div class="btn btn-success pe-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 448 512"><path d="M144 144l0 48 160 0 0-48c0-44.2-35.8-80-80-80s-80 35.8-80 80zM80 192l0-48C80 64.5 144.5 0 224 0s144 64.5 144 144l0 48 16 0c35.3 0 64 28.7 64 64l0 192c0 35.3-28.7 64-64 64L64 512c-35.3 0-64-28.7-64-64L0 256c0-35.3 28.7-64 64-64l16 0z"/></svg>
-                    </div>';
-        }else{
-            $html = '<div class="btn btn-danger pe-none">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 576 512"><path d="M352 144c0-44.2 35.8-80 80-80s80 35.8 80 80l0 48c0 17.7 14.3 32 32 32s32-14.3 32-32l0-48C576 64.5 511.5 0 432 0S288 64.5 288 144l0 48L64 192c-35.3 0-64 28.7-64 64L0 448c0 35.3 28.7 64 64 64l320 0c35.3 0 64-28.7 64-64l0-192c0-35.3-28.7-64-64-64l-32 0 0-48z"/></svg>
-                    </div>';
-        }
-        return $html;
-    }
-    public function isSecure($fileName) : bool {
-        global $user;
-        $crt = glob("/home/$user/.config/valet/Certificates/$fileName.test.crt");
-        return !empty($crt);
-    }
-    public function card() : string {
-        $html = '<div class="col-3">
-                    <div class="card mb-4">
-                        <div class="card-body">
-						    <h5 class="card-title">'.$this->fileName.'</h5>';
-        if(!$_SESSION['config']) {
-            $html .= '<a target="_blank" href="' . $this->link . '" class="btn btn-primary">Accéder</a>
-						    ' . $this->lock();
-        }elseif($this->isExcluded()) {
-            $html .= '<form action="" method="post" class="d-inline">
-						        <input hidden="hidden" name="include" value="' . $this->fileName . '">
-						        <button type="submit" class="btn btn-success">Include</button>
-						    </form>';
-        }else{
-            $html .= '<form action="" method="post" class="d-inline">
-						        <input hidden="hidden" name="unlink" value="' . $this->fileName . '">
-						        <button type="submit" class="btn btn-warning">Unlink</button>
-						    </form>';
-            $html .= '<form action="" method="post" class="d-inline">
-						        <input hidden="hidden" name="exclude" value="' . $this->fileName . '">
-						        <button type="submit" class="btn btn-warning">Exclude</button>
-						    </form>';
-        }
-        $html.='        </div>
-				    </div>
-				</div>';
-        return $html;
-    }
-
-    public function isExcluded(): bool
-    {
-
-        foreach (Config::get('exclude') as $excluded) {
-            if ($excluded == $this->fileName) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-}
-class Nav {
-
-    public static function itemButton($link, $name,$icon=null,$target='_blank') : string {
-        return '<li class="nav-item">
-                    <a target="'.$target.'" class="nav-link" href="'.$link.'">
-		            	'.(null!==$icon ? '<img src="'.$icon.'" width="32" height="32"> ' : $name).
-                    '</a>
-                </li>
-                <div class="vl"></div>';
-    }
-    public static function item($name) : string {
-        return '<li class="nav-item">
-                    <div class="nav-link pe-none">'.$name.'</div>
-                </li>
-                <div class="vl"></div>';
-
-    }
-}
-
-class Config
-{
-    private static ?array $data=null;
-    private static string $filename='config.json';
-
-    private static function createFile()
-    {
-        if(!file_exists(self::$filename)){
-            self::$data = [
-                'exclude'=>['phpmyadmin','phpinfo'],
-                'headers' => [
-                    ['type'=>'link','link'=>'http://phpmyadmin.test', 'name'=>'PHPMyAdmin','icon'=>'http://phpmyadmin.test/favicon.ico','target'=>'_blank'],
-                    ['type'=>'link','link'=>'http://phpinfo.test', 'name'=>'PHPInfo','target'=>'_blank'],
-                    ['type'=> 'tld']
-                ]
-            ];
-            self::save();
-        }
-    }
-
-    private static function save()
-    {
-        file_put_contents(self::$filename, json_encode(self::$data, JSON_PRETTY_PRINT));
-    }
-
-    public static function initData()
-    {
-        self::$data = json_decode(file_get_contents(self::$filename), true);
-    }
-
-    public static function get($key,$default=null)
-    {
-        if(!file_exists(self::$filename)){
-            self::createFile();
-        }
-
-        if(null==self::$data){
-            self::initData();
-        }
-        return isset(self::$data[$key]) ? self::$data[$key] : $default;
-    }
-
-    public static function exclude($name)
-    {
-        self::initData();
-        self::$data['exclude'][]=$name;
-        self::save();
-    }
-    public static function include($name)
-    {
-        self::initData();
-        self::$data['exclude'] = array_diff(self::$data['exclude'],[$name]);
-        self::save();
-    }
-}
