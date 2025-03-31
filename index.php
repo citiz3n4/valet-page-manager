@@ -211,7 +211,7 @@ class Config
 
     public static function initData()
     {
-        self::$data = json_decode(file_get_contents(self::$filename));
+        self::$data = json_decode(file_get_contents(self::$filename), true);
     }
 
     public static function get($key,$default=null)
