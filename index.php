@@ -4,6 +4,7 @@ $user = exec('whoami');
 $configValet = file_get_contents("/home/$user/.config/valet/config.json");
 $configValet = json_decode($configValet);
 $domain = '.'.$configValet->domain;
+$_SESSION['config'] = isset($_SESSION['config']) ? $_SESSION['config'] : false;
 
 if(isset($_GET['config'])){
     $_SESSION['config'] = isset($_SESSION['config']) ? !$_SESSION['config'] : true ;
@@ -19,6 +20,11 @@ if (isset($_POST['unlink'])) {
 
 if (isset($_POST['exclude'])) {
     Config::exclude($_POST['exclude']);
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
+if (isset($_POST['include'])) {
+    Config::include($_POST['include']);
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
     exit();
 }
@@ -78,8 +84,8 @@ if (isset($_POST['exclude'])) {
                                 if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
                                     $dir = basename($dir);
                                     $link = new Link($dir);
-                                    if (!$link->isExcluded()){
-                                        echo $link->cardLink();
+                                    if (!$link->isExcluded() || $_SESSION['config'] ) {
+                                        echo $link->card();
                                     }
                                 }
                             }?>
@@ -96,8 +102,8 @@ if (isset($_POST['exclude'])) {
                                 if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
                                     $dir = basename($dir);
                                     $link = new Link($dir);
-                                    if (!$link->isExcluded()){
-                                        echo $link->cardPark();
+                                    if (!$link->isExcluded() || $_SESSION['config']){
+                                        echo $link->card();
                                     }
                                 }
                             }?>
@@ -147,7 +153,7 @@ class Link {
         $crt = glob("/home/$user/.config/valet/Certificates/$fileName.test.crt");
         return !empty($crt);
     }
-    public function cardLink() : string {
+    public function card() : string {
         $html = '<div class="col-3">
                     <div class="card mb-4">
                         <div class="card-body">
@@ -155,6 +161,11 @@ class Link {
         if(!$_SESSION['config']) {
             $html .= '<a target="_blank" href="' . $this->link . '" class="btn btn-primary">Accéder</a>
 						    ' . $this->lock();
+        }elseif($this->isExcluded()) {
+            $html .= '<form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="include" value="' . $this->fileName . '">
+						        <button type="submit" class="btn btn-success">Include</button>
+						    </form>';
         }else{
             $html .= '<form action="" method="post" class="d-inline">
 						        <input hidden="hidden" name="unlink" value="' . $this->fileName . '">
@@ -170,17 +181,7 @@ class Link {
 				</div>';
         return $html;
     }
-    public function cardPark() : string {
-        return '<div class="col-3">
-                    <div class="card mb-4">
-                        <div class="card-body">
-						    <h5 class="card-title">'.$this->fileName.'</h5>   
-						    <a target="_blank" href="'.$this->link.'" class="btn btn-primary">Accéder</a>
-						    '.$this->lock().'
-				        </div>
-				    </div>
-				</div>';
-    }
+
     public function isExcluded(): bool
     {
 
@@ -258,6 +259,12 @@ class Config
     {
         self::initData();
         self::$data['exclude'][]=$name;
+        self::save();
+    }
+    public static function include($name)
+    {
+        self::initData();
+        self::$data['exclude'] = array_diff(self::$data['exclude'],[$name]);
         self::save();
     }
 }
