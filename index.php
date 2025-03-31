@@ -1,12 +1,24 @@
 <?php
+session_start();
 $user = exec('whoami');
 $configValet = file_get_contents("/home/$user/.config/valet/config.json");
 $configValet = json_decode($configValet);
 $domain = '.'.$configValet->domain;
 
+if(isset($_GET['config'])){
+    $_SESSION['config'] = isset($_SESSION['config']) ? !$_SESSION['config'] : true ;
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
 
 if (isset($_POST['unlink'])) {
     valetUnlink($_POST['unlink']);
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
+
+if (isset($_POST['exclude'])) {
+    Config::exclude($_POST['exclude']);
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
     exit();
 }
@@ -46,6 +58,9 @@ if (isset($_POST['unlink'])) {
             }
           ?>
       </ul>
+        <div class="float-end">
+            <a href=".?config=1" class="btn <?= ($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary' ?>">Config</a>
+        </div>
     </div>
   </div>
 </nav>
@@ -133,19 +148,27 @@ class Link {
         return !empty($crt);
     }
     public function cardLink() : string {
-        return '<div class="col-3">
+        $html = '<div class="col-3">
                     <div class="card mb-4">
                         <div class="card-body">
-						    <h5 class="card-title">'.$this->fileName.'</h5>   
-						    <a target="_blank" href="'.$this->link.'" class="btn btn-primary">Accéder</a>
-						    '.$this->lock().'
-						    <form action="" method="post" class="d-inline">
-						        <input hidden="hidden" name="unlink" value="'.$this->fileName.'">
+						    <h5 class="card-title">'.$this->fileName.'</h5>';
+        if(!$_SESSION['config']) {
+            $html .= '<a target="_blank" href="' . $this->link . '" class="btn btn-primary">Accéder</a>
+						    ' . $this->lock();
+        }else{
+            $html .= '<form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="unlink" value="' . $this->fileName . '">
 						        <button type="submit" class="btn btn-warning">Unlink</button>
-						    </form>
-				        </div>
+						    </form>';
+            $html .= '<form action="" method="post" class="d-inline">
+						        <input hidden="hidden" name="exclude" value="' . $this->fileName . '">
+						        <button type="submit" class="btn btn-warning">Exclude</button>
+						    </form>';
+        }
+        $html.='        </div>
 				    </div>
 				</div>';
+        return $html;
     }
     public function cardPark() : string {
         return '<div class="col-3">
@@ -205,8 +228,13 @@ class Config
                     ['type'=> 'tld']
                 ]
             ];
-            file_put_contents(self::$filename, json_encode(self::$data, JSON_PRETTY_PRINT));
+            self::save();
         }
+    }
+
+    private static function save()
+    {
+        file_put_contents(self::$filename, json_encode(self::$data, JSON_PRETTY_PRINT));
     }
 
     public static function initData()
@@ -224,5 +252,12 @@ class Config
             self::initData();
         }
         return isset(self::$data[$key]) ? self::$data[$key] : $default;
+    }
+
+    public static function exclude($name)
+    {
+        self::initData();
+        self::$data['exclude'][]=$name;
+        self::save();
     }
 }
