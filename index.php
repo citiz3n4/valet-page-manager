@@ -1,12 +1,9 @@
 <?php
-if (!file_exists('config.json')) {
-    createConfigJson();
-}
-
 $user = exec('whoami');
-$config = file_get_contents("/home/$user/.config/valet/config.json");
-$config = json_decode($config);
-$domain = '.'.$config->domain;
+$configValet = file_get_contents("/home/$user/.config/valet/config.json");
+$configValet = json_decode($configValet);
+$domain = '.'.$configValet->domain;
+
 
 if (isset($_POST['unlink'])) {
     valetUnlink($_POST['unlink']);
@@ -23,7 +20,6 @@ if (isset($_POST['unlink'])) {
     <!-- Bootstrap core CSS -->
 	<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
 	<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
-
   </head>
   <body>
   <style>
@@ -40,9 +36,15 @@ if (isset($_POST['unlink'])) {
   <div class="container-fluid">
     <div class="collapse navbar-collapse" id="navbarCollapse">
       <ul class="navbar-nav w-100 mb-2 mb-md-0">
-          <?= Nav::itemButton('http://phpmyadmin.test', 'PhpMyAdmin') ?>
-          <?= Nav::itemButton('http://phpinfo.test', 'PhpInfo') ?>
-          <?= Nav::item('Actual TLD : '.$domain) ?>
+          <?php
+            foreach(Config::get('headers') as $item)
+            {
+                echo match ($item['type']){
+                    'tld'=>Nav::item('Actual TLD : '.$domain),
+                    default => Nav::ItemButton($item['link'], $item['name'],$item['icon'] ?? null,$item['target']??null)
+                };
+            }
+          ?>
       </ul>
     </div>
   </div>
@@ -50,7 +52,7 @@ if (isset($_POST['unlink'])) {
 
 <main class="container">
 	<div class="row">
-        <?php foreach ($config->paths as $path): ?>
+        <?php foreach ($configValet->paths as $path): ?>
             <?php if (basename($path) == 'Sites'): ?>
                 <div class="card mb-4">
                     <div class="card-body">
@@ -97,14 +99,6 @@ if (isset($_POST['unlink'])) {
 </html>
 <?php
 
-function createConfigJson(): void
-{
-    exec('touch config.json');
-    $configJson = fopen('config.json', 'w');
-    fwrite($configJson, json_encode([
-        "exclude" => ["phpmyadmin" ,"phpinfo"],
-    ]));
-}
 function valetUnlink($project): void {
     exec('valet unlink '.$project);
 }
@@ -166,8 +160,8 @@ class Link {
     }
     public function isExcluded(): bool
     {
-        $config = json_decode(file_get_contents('config.json'));
-        foreach ($config->exclude as $excluded) {
+
+        foreach (Config::get('exclude') as $excluded) {
             if ($excluded == $this->fileName) {
                 return true;
             }
@@ -178,11 +172,11 @@ class Link {
 }
 class Nav {
 
-    public static function itemButton($link, $name) : string {
+    public static function itemButton($link, $name,$icon=null,$target='_blank') : string {
         return '<li class="nav-item">
-                    <a target="_blank" class="nav-link" href="'.$link.'">
-		            	  '.$name.'
-                    </a>
+                    <a target="'.$target.'" class="nav-link" href="'.$link.'">
+		            	'.(null!==$icon ? '<img src="'.$icon.'" width="32" height="32"> ' : $name).
+                    '</a>
                 </li>
                 <div class="vl"></div>';
     }
@@ -192,5 +186,43 @@ class Nav {
                 </li>
                 <div class="vl"></div>';
 
+    }
+}
+
+class Config
+{
+    private static ?array $data=null;
+    private static string $filename='config.json';
+
+    private static function createFile()
+    {
+        if(!file_exists(self::$filename)){
+            self::$data = [
+                'exclude'=>['phpmyadmin','phpinfo'],
+                'headers' => [
+                    ['type'=>'link','link'=>'http://phpmyadmin.test', 'name'=>'PHPMyAdmin','icon'=>'http://phpmyadmin.test/favicon.ico','target'=>'_blank'],
+                    ['type'=>'link','link'=>'http://phpinfo.test', 'name'=>'PHPInfo','target'=>'_blank'],
+                    ['type'=> 'tld']
+                ]
+            ];
+            file_put_contents(self::$filename, json_encode(self::$data, JSON_PRETTY_PRINT));
+        }
+    }
+
+    public static function initData()
+    {
+        self::$data = json_decode(file_get_contents(self::$filename));
+    }
+
+    public static function get($key,$default=null)
+    {
+        if(!file_exists(self::$filename)){
+            self::createFile();
+        }
+
+        if(null==self::$data){
+            self::initData();
+        }
+        return isset(self::$data[$key]) ? self::$data[$key] : $default;
     }
 }
