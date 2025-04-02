@@ -122,7 +122,7 @@ class Config
                 'exclude'=>['phpmyadmin','phpinfo'],
                 'headers' => [
                     ['type'=>'link','link'=>'http://phpmyadmin.test', 'name'=>'PHPMyAdmin','icon'=>'http://phpmyadmin.test/favicon.ico','target'=>'_blank'],
-                    ['type'=>'link','link'=>'http://phpinfo.test', 'name'=>'PHPInfo','target'=>'_blank'],
+                    ['type'=>'link','link'=>'http://phpinfo.test', 'name'=>'PHPInfo', 'icon'=> 'https://www.php.net/favicon.ico','target'=>'_blank'],
                     ['type'=> 'tld']
                 ]
             ];
