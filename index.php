@@ -304,6 +304,16 @@ if (isset($_POST['include'])) {
             </div>
             <form action="#" method="POST">
                 <div class="modal-body">
+                    <div class="my-2">
+                        <label for="name">Project's name : </label>
+                        <input class="form-control" id="name" name="name" oninput="document.getElementById('submitButton').innerHTML = 'Create '+this.value; document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/'+this.value"/>
+                    </div>
+                    <div class="my-2">
+                        <label for="path">Folder where the project will be created : </label>
+                        <input class="form-control" id="path" name="path" oninput="document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/" value="$HOME/"/>
+                        <small class="text-muted" id="pathSmall"></small>
+                    </div>
+                    <hr>
                     <label for="type">What type of project do you want to create ? </label>
                     <div id="type" class="my-2">
                         <div class="my-1">
@@ -320,19 +330,14 @@ if (isset($_POST['include'])) {
                         </div>
                     </div>
                     <hr>
-                    <div class="my-2">
-                        <label for="name">Project's name : </label>
-                        <input class="form-control" id="name" name="name" oninput="document.getElementById('submitButton').innerHTML = 'Create '+this.value"/>
-                    </div>
-                    <hr>
                     <label for="dbType">What kind of SGBD do you want to use ?</label>
                     <div id="dbType" class="my-2">
                         <div class="my-1">
-                            <input type="radio" id="sqlite" name="dbType" value="sqlite" oninput="document.getElementById('dbName').disable = true"/>
+                            <input type="radio" id="sqlite" name="dbType" value="sqlite" oninput="document.getElementById('dbName').disabled = true; document.getElementById('dbUser').disabled = true; document.getElementById('dbPassword').disabled = true;"/>
                             <label for="name">SQLite</label>
                         </div>
                         <div class="my-1">
-                            <input type="radio" id="mysql" name="dbType" value="mysql"/>
+                            <input type="radio" id="mysql" name="dbType" value="mysql" oninput="document.getElementById('dbName').disabled = false; document.getElementById('dbUser').disabled = false; document.getElementById('dbPassword').disabled = false;"/>
                             <label for="name">MySQL</label>
                         </div>
                     </div>
@@ -347,6 +352,14 @@ if (isset($_POST['include'])) {
                     <div class="my-2">
                         <label for="dbPassword">Database's user's password : </label>
                         <input type="password" class="form-control" id="dbPassword" name="dbPassword"/>
+                    </div>
+                    <hr>
+                    <label for="addons">Packages to install : </label>
+                    <div id="addons" class="my-2">
+                        <div class="my-1">
+                            <input type="checkbox" id="adminlte" name="adminlte" value="adminlte"/>
+                            <label for="adminlte">AdminLTE</label>
+                        </div>
                     </div>
                 </div>
                 <div class="modal-footer">
