@@ -240,7 +240,7 @@ if (isset($_POST['include'])) {
                 ?>
             </ul>
             <div class="float-end">
-                <a href=".?config=1" class="btn <?= ($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary' ?>">Config</a>
+                <a href=".?config=1" class="btn <?= ($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary' ?>">Settings</a>
             </div>
         </div>
     </div>
