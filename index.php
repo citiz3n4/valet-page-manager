@@ -98,14 +98,12 @@ class Nav {
                     <a target="'.$target.'" class="nav-link" href="'.$link.'">
 		            	'.(null!==$icon ? '<img src="'.$icon.'" width="32" height="32"> ' : $name).
             '</a>
-                </li>
-                <div class="vl"></div>';
+                </li>';
     }
     public static function item($name) : string {
         return '<li class="nav-item">
                     <div class="nav-link pe-none">'.$name.'</div>
-                </li>
-                <div class="vl"></div>';
+                </li>';
 
     }
 }
@@ -234,14 +232,15 @@ if (isset($_POST['include'])) {
     <div class="container-fluid">
         <div class="collapse navbar-collapse" id="navbarCollapse">
             <ul class="navbar-nav w-100 mb-2 mb-md-0">
-                <?php
-                foreach(Config::get('headers') as $item)
-                {
-                    echo match ($item['type']){
-                        'tld'=>Nav::item('TLD : '.Config::get('app')['tld']),
-                        default => Nav::ItemButton('http://'.$item['domain'].Config::get('app')['tld'], $item['name'],$item['icon'] ?? null,$item['target']??null)
-                    };
-                }
+                <?=
+
+                implode(
+                    '<div class="vl"></div>',
+                    array_map(fn($item) => match ($item['type']) {
+                        'tld' => Nav::item('TLD : ' . $domain),
+                        default => Nav::ItemButton('http://'.$item['domain'].Config::get('app')['tld'], $item['name'],$item['icon'] ?? null,$item['target']??null),
+                    }, Config::get('headers'))
+                )
                 ?>
             </ul>
             <div class="float-end">
