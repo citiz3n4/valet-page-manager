@@ -113,7 +113,7 @@ class Config
     private static ?array $data=null;
     private static string $filename='config.json';
 
-    private static function createFile()
+    private static function createFile(): void
     {
         global $domain;
         if(!file_exists(self::$filename)){
@@ -133,11 +133,11 @@ class Config
             self::save();
         }
     }
-    private static function save()
+    private static function save(): void
     {
         file_put_contents(self::$filename, json_encode(self::$data, JSON_PRETTY_PRINT));
     }
-    public static function initData()
+    public static function initData(): void
     {
         self::$data = json_decode(file_get_contents(self::$filename), true);
     }
@@ -150,7 +150,7 @@ class Config
         if(null==self::$data){
             self::initData();
         }
-        return isset(self::$data[$key]) ? self::$data[$key] : $default;
+        return self::$data[$key] ?? $default;
     }
     public static function setTld($value): void
     {
@@ -166,13 +166,13 @@ class Config
         self::$data['app']['tld'] = $value;
         self::save();
     }
-    public static function exclude($name)
+    public static function exclude($name): void
     {
         self::initData();
         self::$data['exclude'][]=$name;
         self::save();
     }
-    public static function include($name)
+    public static function include($name): void
     {
         self::initData();
         self::$data['exclude'] = array_diff(self::$data['exclude'],[$name]);
@@ -182,7 +182,7 @@ class Config
 
 
 if (isset($_GET['config'])){
-    $_SESSION['config'] = isset($_SESSION['config']) ? !$_SESSION['config'] : true ;
+    $_SESSION['config'] = !isset($_SESSION['config']) || !$_SESSION['config'];
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
     exit();
 }
@@ -200,6 +200,79 @@ if (isset($_POST['include'])) {
     Config::include($_POST['include']);
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
     exit();
+}
+
+if (isset($_POST['create'])){
+
+    $data = $_POST['create'];
+
+    $projectName = escapeshellarg($data['name']);
+    $projectPath = escapeshellarg($data['path']);
+    $projectType = $data['type'];
+    $dbType = $data['dbType'];
+    $dbName = escapeshellarg($data['dbName'] ?? '');
+    $dbUser = escapeshellarg($data['dbUser'] ?? '');
+    $dbPassword = escapeshellarg($data['dbPassword'] ?? '');
+    $installAdminLTE = isset($data['adminlte']);
+    $installSpatiePermission = isset($data['spatiePermission']);
+
+    exec("composer create-project laravel/laravel $projectPath/$projectName");
+
+    chdir("{$data['path']}/{$data['name']}"); // We need to use the raw paths for chdir
+
+    exec('valet link');
+
+    if (!file_exists('.env')) {
+        copy('.env.example', '.env');
+    }
+
+    $envUpdates = [
+        "s/APP_NAME=.*/APP_NAME=$projectName/",
+        "s/APP_URL=.*/APP_URL=http:\/\/$projectName.test/"
+    ];
+
+    if ($dbType === 'mysql') {
+        $envUpdates[] = "s/DB_CONNECTION=.*/DB_CONNECTION=mysql/";
+        $envUpdates[] = "s/DB_DATABASE=.*/DB_DATABASE=$dbName/";
+        $envUpdates[] = "s/DB_USERNAME=.*/DB_USERNAME=$dbUser/";
+        $envUpdates[] = "s/DB_PASSWORD=.*/DB_PASSWORD=$dbPassword/";
+    } else {
+        $envUpdates[] = "s/DB_CONNECTION=.*/DB_CONNECTION=sqlite/";
+    }
+
+    foreach ($envUpdates as $update) {
+        exec("sed -i -e '$update' .env");
+    }
+
+    exec('php artisan migrate:fresh --force');
+
+    if ($projectType === 'api') {
+        exec("php artisan install:api");
+    } else {
+        exec("composer require barryvdh/laravel-debugbar --dev");
+    }
+
+    if ($projectType === 'api' || $projectType === 'monolithic') {
+        exec("composer require laravel/tinker");
+    }
+
+    if ($installAdminLTE) {
+        exec("composer require jeroennoten/laravel-adminlte");
+        exec("php artisan adminlte:install");
+        exec("composer require laravel/ui");
+        exec("php artisan ui bootstrap --auth");
+        exec("php artisan adminlte:install --type=full --force");
+    }
+    if ($installSpatiePermission) {
+        exec("composer require spatie/laravel-permission");
+    }
+
+    exec("npm install");
+
+
+    header( "Location: http://{$_SERVER['SERVER_NAME']}?create=true");
+    exit();
+
 }
 
 ?>
@@ -293,8 +366,10 @@ if (isset($_POST['include'])) {
         <?php endforeach; ?>
     </div>
 </main>
+
+<!-- Modal for the create project feature -->
 <div class="modal fade" id="createModal" role="dialog" aria-hidden="true">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="createModal">Create a new project</h5>
@@ -302,63 +377,67 @@ if (isset($_POST['include'])) {
                     <span aria-hidden="true">&times;</span>
                 </button>
             </div>
-            <form action="#" method="POST">
+            <form action="" method="POST">
                 <div class="modal-body">
                     <div class="my-2">
                         <label for="name">Project's name : </label>
-                        <input class="form-control" id="name" name="name" oninput="document.getElementById('submitButton').innerHTML = 'Create '+this.value; document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/'+this.value"/>
+                        <input class="form-control" id="name" name="create[name]" oninput="document.getElementById('dbName').value = this.value; document.getElementById('submitButton').innerHTML = 'Create '+this.value; document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/'+this.value" required/>
                     </div>
                     <div class="my-2">
                         <label for="path">Folder where the project will be created : </label>
-                        <input class="form-control" id="path" name="path" oninput="document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/" value="$HOME/"/>
+                        <input class="form-control" id="path" name="create[path]" oninput="document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/" value="/home/<?= $user ?>" required/>
                         <small class="text-muted" id="pathSmall"></small>
                     </div>
                     <hr>
                     <label for="type">What type of project do you want to create ? </label>
-                    <div id="type" class="my-2">
+                    <div id="type" class="my-2 d-flex justify-content-around">
                         <div class="my-1">
-                            <input type="radio" id="api" name="type" value="api"/>
+                            <input type="radio" id="api" name="create[type]" value="api" required/>
                             <label for="name">API</label>
                         </div>
                         <div class="my-1">
-                            <input type="radio" id="monolithic" name="type" value="monolithic"/>
+                            <input type="radio" id="monolithic" name="create[type]" value="monolithic" required/>
                             <label for="name">Monolithic</label>
                         </div>
                         <div class="my-1">
-                            <input type="radio" id="headless" name="type" value="headless"/>
+                            <input type="radio" id="headless" name="create[type]" value="headless" required/>
                             <label for="name">Headless</label>
                         </div>
                     </div>
                     <hr>
                     <label for="dbType">What kind of SGBD do you want to use ?</label>
-                    <div id="dbType" class="my-2">
+                    <div id="dbType" class="my-2 d-flex justify-content-around">
                         <div class="my-1">
-                            <input type="radio" id="sqlite" name="dbType" value="sqlite" oninput="document.getElementById('dbName').disabled = true; document.getElementById('dbUser').disabled = true; document.getElementById('dbPassword').disabled = true;"/>
+                            <input type="radio" id="sqlite" name="create[dbType]" value="sqlite" oninput="document.getElementById('dbName').disabled = true; document.getElementById('dbUser').disabled = true; document.getElementById('dbPassword').disabled = true;" required/>
                             <label for="name">SQLite</label>
                         </div>
                         <div class="my-1">
-                            <input type="radio" id="mysql" name="dbType" value="mysql" oninput="document.getElementById('dbName').disabled = false; document.getElementById('dbUser').disabled = false; document.getElementById('dbPassword').disabled = false;"/>
+                            <input type="radio" id="mysql" name="create[dbType]" value="mysql" oninput="document.getElementById('dbName').disabled = false; document.getElementById('dbUser').disabled = false; document.getElementById('dbPassword').disabled = false;" required/>
                             <label for="name">MySQL</label>
                         </div>
                     </div>
                     <div class="my-2">
                         <label for="dbName">Database's name : </label>
-                        <input class="form-control" id="dbName" name="dbName"/>
+                        <input class="form-control" id="dbName" name="create[dbName]" onclick="this.value = document.getElementById('name').value"/>
                     </div>
                     <div class="my-2">
                         <label for="dbUser">Database's username : </label>
-                        <input class="form-control" id="dbUser" name="dbUser"/>
+                        <input class="form-control" id="dbUser" name="create[dbUser]" value="usersio"/>
                     </div>
                     <div class="my-2">
                         <label for="dbPassword">Database's user's password : </label>
-                        <input type="password" class="form-control" id="dbPassword" name="dbPassword"/>
+                        <input type="password" class="form-control" id="dbPassword" name="create[dbPassword]" value="pwsio"/>
                     </div>
                     <hr>
                     <label for="addons">Packages to install : </label>
-                    <div id="addons" class="my-2">
+                    <div id="addons" class="my-2 d-flex justify-content-around">
                         <div class="my-1">
-                            <input type="checkbox" id="adminlte" name="adminlte" value="adminlte"/>
+                            <input type="checkbox" id="adminlte" name="create[adminlte]" value="adminlte"/>
                             <label for="adminlte">AdminLTE</label>
+                        </div>
+                        <div class="my-1">
+                            <input type="checkbox" id="spatiePermission" name="create[spatiePermission]" value="spatiePermission"/>
+                            <label for="adminlte">Spatie Permission</label>
                         </div>
                     </div>
                 </div>
