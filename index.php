@@ -54,7 +54,7 @@ class Link {
                         <div class="card-body">
 						    <h5 class="card-title">'.$this->fileName.'</h5>';
         if(!$_SESSION['config']) {
-            $html .= '<a target="_blank" href="' . $this->link . '" class="btn btn-primary">Accéder</a>
+            $html .= '<a target="_blank" href="' . $this->link . '" class="btn btn-primary">Open</a>
 						    ' . $this->lock();
         }elseif($this->isExcluded()) {
             $html .= '<form action="" method="post" class="d-inline">
