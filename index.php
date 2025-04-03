@@ -62,6 +62,11 @@ class Link {
 						        <input hidden="hidden" name="include" value="' . $this->fileName . '">
 						        <button type="submit" class="btn btn-success">Include</button>
 						    </form>';
+        }elseif ($this->isServe()) {
+            $html .= '<form action="" method="post" class="d-inline">
+                                <input hidden="hidden" name="serve" value="'.$this->fileName.'">
+                                <button type="submit" class="btn btn-success">Serve</button>
+                            </form>';
         }else{
             if($this->type===LinkType::Link) {
                 $html .= '<form action="" method="post" class="d-inline">
@@ -73,6 +78,7 @@ class Link {
 						        <input hidden="hidden" name="exclude" value="' . $this->fileName . '">
 						        <button type="submit" class="btn btn-warning">Exclude</button>
 						    </form>';
+
         }
         $html.='        </div>
 				    </div>
@@ -88,6 +94,9 @@ class Link {
             }
         }
         return false;
+    }
+    public function isServe(): bool{
+
     }
 
 }
