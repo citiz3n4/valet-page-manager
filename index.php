@@ -204,13 +204,13 @@ class Config
         self::$data['exclude'] = array_diff(self::$data['exclude'],[$name]);
         self::save();
     }
-    public static function excludePath($path)
+    public static function excludePath($path): void
     {
         self::initData();
         self::$data['excludePath'][]=$path;
         self::save();
     }
-    public static function includePath($path)
+    public static function includePath($path): void
     {
         self::initData();
         self::$data['excludePath'] = array_diff(self::$data['excludePath'],[$path]);
@@ -249,77 +249,125 @@ if (isset($_POST['includePath'])) {
     exit();
 }
 
-if (isset($_POST['create'])){
+if (isset($_POST['create'])) {
 
     $data = $_POST['create'];
 
-    $projectName = escapeshellarg($data['name']);
-    $projectPath = escapeshellarg($data['path']);
+    // Get all the datas from the form in separate vars for utility
+    $projectName = trim($data['name']);
+    $projectPath = rtrim($data['path'], '/');
     $projectType = $data['type'];
     $dbType = $data['dbType'];
-    $dbName = escapeshellarg($data['dbName'] ?? '');
-    $dbUser = escapeshellarg($data['dbUser'] ?? '');
-    $dbPassword = escapeshellarg($data['dbPassword'] ?? '');
-    $installAdminLTE = isset($data['adminlte']);
-    $installSpatiePermission = isset($data['spatiePermission']);
+    $dbName = trim($data['dbName'] ?? '');
+    $dbUser = trim($data['dbUser'] ?? '');
+    $dbPassword = trim($data['dbPassword'] ?? '');
+    $installAdminLTE = isset($data['adminlte']) ? "1" : "0";
+    $installSpatiePermission = isset($data['spatiePermission']) ? "1" : "0";
+    $valetLink = isset($data['valetLink']) ? "1" : "0";
 
-    exec("composer create-project laravel/laravel $projectPath/$projectName");
+    // Where the bash script will be saved (so where VPM is)
+    $scriptPath = __DIR__ . '/setup_project.sh';
 
-    chdir("{$data['path']}/{$data['name']}"); // We need to use the raw paths for chdir
-
-    exec('valet link');
-
-    if (!file_exists('.env')) {
-        copy('.env.example', '.env');
+    // Create the bash file if it doesn't exist
+    if (!file_exists($scriptPath)) {
+        $bashScript = <<<EOT
+            #!/bin/bash
+            
+            projectName="\$1"
+            projectPath="\$2"
+            projectType="\$3"
+            dbType="\$4"
+            dbName="\$5"
+            dbUser="\$6"
+            dbPassword="\$7"
+            installAdminLTE="\$8"
+            installSpatiePermission="\$9"
+            valetLink="\$10"
+            
+            fullProjectPath="\$projectPath/\$projectName"
+            
+            # Delete if the project already exist
+            rm -rf "\$fullProjectPath"
+            
+            # Create Laravel project 
+            composer create-project laravel/laravel "\$fullProjectPath" && cd "\$fullProjectPath"
+            
+            # Create .env file
+            if [ ! -f .env ]; then
+                cp .env.example .env
+            fi
+            
+            sed -i -e "s/APP_NAME=.*/APP_NAME=\$projectName/" \
+            -e "s|APP_URL=.*|APP_URL=http:\/\/\$projectName.test|" \
+            -e "s/\(APP_LOCALE=en\)/APP_LOCALE=fr/g" \
+            -e "s/\(APP_FALLBACK_LOCALE=en\)/APP_FALLBACK_LOCALE=fr/g" \
+            -e "s/\(APP_FAKER_LOCALE=en_US\)/APP_FAKER_LOCALE=fr_FR/g" .env
+            
+            if [ "\$dbType" = "mysql" ]; then
+                sed -i -e "s/\(sqlite\)/mysql/g" \
+                -e "s/\(# DB\)/DB/g" \
+                -e "s/\(DB_DATABASE=\).*/\1\$dbName/" \
+                -e "s/\(DB_USERNAME=\).*/\1\$dbUser/" \
+                -e "s/\(DB_PASSWORD=\).*/\1\$dbPassword/" .env
+            else
+                sed -i -e "s/\(DB_CONNECTION=\).*/\1sqlite/" .env
+            fi
+            
+            # Create the link
+            if [ "\$valetLink" = "1" ]; then
+                valet link
+            fi
+            
+            # Migrate
+            php artisan migrate:fresh --force
+            
+            # Run commands for each project type
+            if [ "\$projectType" = "api" ]; then
+                php artisan install:api
+            else
+                composer require barryvdh/laravel-debugbar --dev
+            fi
+            
+            if [ "\$projectType" = "api" ] || [ "\$projectType" = "monolithic" ]; then
+                composer require laravel/tinker
+            fi
+            
+            if [ "\$installAdminLTE" = "1" ]; then
+                composer require jeroennoten/laravel-adminlte &&
+                php artisan adminlte:install &&
+                composer require laravel/ui &&
+                php artisan ui bootstrap --auth &&
+                php artisan adminlte:install --type=full --force
+            fi
+            
+            if [ "\$installSpatiePermission" = "1" ]; then
+                composer require spatie/laravel-permission
+            fi
+            
+            npm install
+        EOT;
+        file_put_contents($scriptPath, $bashScript);
+        chmod($scriptPath, 0755);
     }
 
-    $envUpdates = [
-        "s/APP_NAME=.*/APP_NAME=$projectName/",
-        "s/APP_URL=.*/APP_URL=http:\/\/$projectName.test/"
-    ];
+    // Build the command line with the required arguments
+    $command = "nohup bash " . escapeshellarg($scriptPath) . " "
+        . escapeshellarg($projectName) . " "
+        . escapeshellarg($projectPath) . " "
+        . escapeshellarg($projectType) . " "
+        . escapeshellarg($dbType) . " "
+        . escapeshellarg($dbName) . " "
+        . escapeshellarg($dbUser) . " "
+        . escapeshellarg($dbPassword) . " "
+        . escapeshellarg($installAdminLTE) . " "
+        . escapeshellarg($installSpatiePermission) . " "
+        . escapeshellarg($valetLink)
+        . " > /dev/null 2>&1 &";
 
-    if ($dbType === 'mysql') {
-        $envUpdates[] = "s/DB_CONNECTION=.*/DB_CONNECTION=mysql/";
-        $envUpdates[] = "s/DB_DATABASE=.*/DB_DATABASE=$dbName/";
-        $envUpdates[] = "s/DB_USERNAME=.*/DB_USERNAME=$dbUser/";
-        $envUpdates[] = "s/DB_PASSWORD=.*/DB_PASSWORD=$dbPassword/";
-    } else {
-        $envUpdates[] = "s/DB_CONNECTION=.*/DB_CONNECTION=sqlite/";
-    }
-
-    foreach ($envUpdates as $update) {
-        exec("sed -i -e '$update' .env");
-    }
-
-    exec('php artisan migrate:fresh --force');
-
-    if ($projectType === 'api') {
-        exec("php artisan install:api");
-    } else {
-        exec("composer require barryvdh/laravel-debugbar --dev");
-    }
-
-    if ($projectType === 'api' || $projectType === 'monolithic') {
-        exec("composer require laravel/tinker");
-    }
-
-    if ($installAdminLTE) {
-        exec("composer require jeroennoten/laravel-adminlte");
-        exec("php artisan adminlte:install");
-        exec("composer require laravel/ui");
-        exec("php artisan ui bootstrap --auth");
-        exec("php artisan adminlte:install --type=full --force");
-    }
-    if ($installSpatiePermission) {
-        exec("composer require spatie/laravel-permission");
-    }
-
-    exec("npm install");
-
-
-    header( "Location: http://{$_SERVER['SERVER_NAME']}?create=true");
+    // Execute the script and redirect the user
+    shell_exec($command);
+    header("Location: http://{$_SERVER['SERVER_NAME']}?create=$projectName");
     exit();
-
 }
 
 ?>
@@ -369,6 +417,12 @@ if (isset($_POST['create'])){
         </div>
     </div>
 </nav>
+
+<?php if($_GET['create']): ?>
+    <div class="w-25 mx-auto text-center alert alert-primary" role="alert">
+        Your project <?= $_GET['create'] ?> is being created in the background.
+    </div>
+<?php endif; ?>
 
 <main class="container">
     <div class="row">
@@ -499,15 +553,19 @@ if (isset($_POST['create'])){
                         <input type="password" class="form-control" id="dbPassword" name="create[dbPassword]" value="pwsio"/>
                     </div>
                     <hr>
-                    <label for="addons">Packages to install : </label>
+                    <label for="addons">Options : </label>
                     <div id="addons" class="my-2 d-flex justify-content-around">
                         <div class="my-1">
+                            <input type="checkbox" id="valetLink" name="create[valetLink]" value="valetLink"/>
+                            <label for="adminlte">Valet link the project</label>
+                        </div>
+                        <div class="my-1">
                             <input type="checkbox" id="adminlte" name="create[adminlte]" value="adminlte"/>
-                            <label for="adminlte">AdminLTE</label>
+                            <label for="adminlte">Install AdminLTE</label>
                         </div>
                         <div class="my-1">
                             <input type="checkbox" id="spatiePermission" name="create[spatiePermission]" value="spatiePermission"/>
-                            <label for="adminlte">Spatie Permission</label>
+                            <label for="adminlte">Install Spatie Permission</label>
                         </div>
                     </div>
                 </div>
