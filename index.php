@@ -81,7 +81,6 @@ class Link {
     }
     public function isExcluded(): bool
     {
-
         foreach (Config::get('exclude') as $excluded) {
             if ($excluded == $this->fileName) {
                 return true;
@@ -91,7 +90,28 @@ class Link {
     }
 
 }
-class Nav {
+class Park
+{
+    public string $path;
+
+    public function __construct(string $path)
+    {
+        $this->path = $path;
+    }
+
+    public function isExcluded(): bool
+    {
+        foreach (Config::get('excludePath') as $excludedPath) {
+            if ($excludedPath == $this->path) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+}
+class Nav
+{
 
     public static function itemButton($link, $name,$icon=null,$target='_blank') : string {
         return '<li class="nav-item">
@@ -118,7 +138,13 @@ class Config
         global $domain;
         if(!file_exists(self::$filename)){
             self::$data = [
-                'exclude'=>['phpmyadmin','phpinfo'],
+                'exclude'=>[
+                    'phpmyadmin',
+                    'phpinfo'
+                ],
+                'excludePath' => [
+
+                ],
                 'headers' => [
                     ['type'=>'link','domain'=>'phpmyadmin', 'name'=>'PHPMyAdmin','icon'=>'https://www.phpmyadmin.net/static/favicon.ico','target'=>'_blank'],
                     ['type'=>'link','domain'=>'phpinfo', 'name'=>'PHPInfo', 'icon'=> 'https://www.php.net/favicon.ico','target'=>'_blank'],
@@ -178,8 +204,19 @@ class Config
         self::$data['exclude'] = array_diff(self::$data['exclude'],[$name]);
         self::save();
     }
+    public static function excludePath($path)
+    {
+        self::initData();
+        self::$data['excludePath'][]=$path;
+        self::save();
+    }
+    public static function includePath($path)
+    {
+        self::initData();
+        self::$data['excludePath'] = array_diff(self::$data['excludePath'],[$path]);
+        self::save();
+    }
 }
-
 
 if (isset($_GET['config'])){
     $_SESSION['config'] = isset($_SESSION['config']) ? !$_SESSION['config'] : true ;
@@ -198,6 +235,16 @@ if (isset($_POST['exclude'])) {
 }
 if (isset($_POST['include'])) {
     Config::include($_POST['include']);
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
+if (isset($_POST['excludePath'])) {
+    Config::excludePath($_POST['excludePath']);
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
+if (isset($_POST['includePath'])) {
+    Config::includePath($_POST['includePath']);
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
     exit();
 }
@@ -268,23 +315,46 @@ if (isset($_POST['include'])) {
                     </div>
                 </div>
             <?php else: ?>
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Park links : <?= $path ?></h5>
-                        <div class="row">
-                            <?php
-                            foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
-                                if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
-                                    $dir = basename($dir);
-                                    $link = new Link($dir,LinkType::Park);
-                                    if (!$link->isExcluded() || $_SESSION['config']){
-                                        echo $link->card();
+                <?php $park = new Park($path); ?>
+                <?php if (!$park->isExcluded() || $_SESSION['config']) : ?>
+                    <div class="card mb-4">
+                        <div class="card-body">
+                            <?php if ($_SESSION['config']): ?>
+                                <div class="mb-4">
+                                    <div class="float-end">
+                                        <?php if ($park->isExcluded()): ?>
+                                            <form action="" method="post" class="d-inline">
+                                                <input hidden="hidden" name="includePath" value="<?= $park->path ?>">
+                                                <button type="submit" class="btn btn-success">Include</button>
+                                            </form>
+                                        <?php else: ?>
+                                            <form action="" method="post" class="d-inline">
+                                                <input hidden="hidden" name="excludePath" value="<?= $park->path ?>">
+                                                <button type="submit" class="btn btn-warning">Exclude</button>
+                                            </form>
+                                        <?php endif; ?>
+                                    </div>
+                                    <h5 class="card-title">Park links : <?= $park->path ?></h5>
+                                </div>
+                            <?php else : ?>
+                                <h5 class="card-title">Park links : <?= $park->path ?></h5>
+                            <?php endif; ?>
+
+                            <div class="row">
+                                <?php
+                                foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
+                                    if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
+                                        $dir = basename($dir);
+                                        $link = new Link($dir,LinkType::Park);
+                                        if (!$link->isExcluded() || $_SESSION['config']){
+                                            echo $link->card();
+                                        }
                                     }
-                                }
-                            }?>
+                                }?>
+                            </div>
                         </div>
                     </div>
-                </div>
+                <?php endif; ?>
             <?php endif; ?>
         <?php endforeach; ?>
     </div>
