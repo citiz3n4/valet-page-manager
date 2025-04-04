@@ -270,8 +270,8 @@ if (isset($_POST['create'])) {
 
     // Create the bash file if it doesn't exist
     if (!file_exists($scriptPath)) {
-        $bashScript = <<<EOT
-            #!/bin/bash
+        $bashScript = <<<SH
+            #!/bin/sh
             
             projectName="\$1"
             projectPath="\$2"
@@ -282,7 +282,7 @@ if (isset($_POST['create'])) {
             dbPassword="\$7"
             installAdminLTE="\$8"
             installSpatiePermission="\$9"
-            valetLink="\$10"
+            valetLink="\${10}"
             
             fullProjectPath="\$projectPath/\$projectName"
             
@@ -306,9 +306,9 @@ if (isset($_POST['create'])) {
             if [ "\$dbType" = "mysql" ]; then
                 sed -i -e "s/\(sqlite\)/mysql/g" \
                 -e "s/\(# DB\)/DB/g" \
-                -e "s/\(DB_DATABASE=\).*/\1\$dbName/" \
-                -e "s/\(DB_USERNAME=\).*/\1\$dbUser/" \
-                -e "s/\(DB_PASSWORD=\).*/\1\$dbPassword/" .env
+                -e "s/\(DB_DATABASE=\).*/\DB_DATABASE=\$dbName/" \
+                -e "s/\(DB_USERNAME=\).*/\DB_USERNAME=\$dbUser/" \
+                -e "s/\(DB_PASSWORD=\).*/\DB_PASSWORD=\$dbPassword/" .env
             else
                 sed -i -e "s/\(DB_CONNECTION=\).*/\1sqlite/" .env
             fi
@@ -319,7 +319,7 @@ if (isset($_POST['create'])) {
             fi
             
             # Migrate
-            php artisan migrate:fresh --force
+            php artisan migrate:fresh --seed --force
             
             # Run commands for each project type
             if [ "\$projectType" = "api" ]; then
@@ -345,7 +345,7 @@ if (isset($_POST['create'])) {
             fi
             
             npm install
-        EOT;
+        SH;
         file_put_contents($scriptPath, $bashScript);
         chmod($scriptPath, 0755);
     }
@@ -361,7 +361,7 @@ if (isset($_POST['create'])) {
         . escapeshellarg($dbPassword) . " "
         . escapeshellarg($installAdminLTE) . " "
         . escapeshellarg($installSpatiePermission) . " "
-        . escapeshellarg($valetLink)
+        . escapeshellarg($valetLink) . " "
         . " > /dev/null 2>&1 &";
 
     // Execute the script and redirect the user
@@ -557,7 +557,7 @@ if (isset($_POST['create'])) {
                     <div id="addons" class="my-2 d-flex justify-content-around">
                         <div class="my-1">
                             <input type="checkbox" id="valetLink" name="create[valetLink]" value="valetLink"/>
-                            <label for="adminlte">Valet link the project</label>
+                            <label for="valetLink">Valet link the project</label>
                         </div>
                         <div class="my-1">
                             <input type="checkbox" id="adminlte" name="create[adminlte]" value="adminlte"/>
@@ -565,8 +565,20 @@ if (isset($_POST['create'])) {
                         </div>
                         <div class="my-1">
                             <input type="checkbox" id="spatiePermission" name="create[spatiePermission]" value="spatiePermission"/>
-                            <label for="adminlte">Install Spatie Permission</label>
+                            <label for="spatiePermission">Install Spatie Permission</label>
                         </div>
+<!--                        <div class="my-1">-->
+<!--                            <input type="checkbox" id="enum" name="create[enum]" value="enum"/>-->
+<!--                            <label for="enum">Enum helpers</label>-->
+<!--                        </div>-->
+<!--                        <div class="my-1">-->
+<!--                            <input type="checkbox" id="dumpServer" name="create[dumpServer]" value="dumpServer"/>-->
+<!--                            <label for="dumpServer">Laravel Dump Server</label>-->
+<!--                        </div>-->
+<!--                        <div class="my-1">-->
+<!--                            <input type="checkbox" id="langHelper" name="create[langHelper]" value="langHelper"/>-->
+<!--                            <label for="langHelper">Lang Helper</label>-->
+<!--                        </div>-->
                     </div>
                 </div>
                 <div class="modal-footer">
