@@ -418,7 +418,7 @@ if (isset($_POST['create'])) {
     </div>
 </nav>
 
-<?php if($_GET['create']): ?>
+<?php if(isset($_GET['create'])): ?>
     <div class="w-25 mx-auto text-center alert alert-primary" role="alert">
         Your project <?= $_GET['create'] ?> is being created in the background.
     </div>
