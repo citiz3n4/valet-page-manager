@@ -262,6 +262,7 @@ if (isset($_POST['create'])) {
     $dbUser = trim($data['dbUser'] ?? '');
     $dbPassword = trim($data['dbPassword'] ?? '');
     $installAdminLTE = isset($data['adminlte']) ? "1" : "0";
+    $installFilament = isset($data['filament']) ? "1" : "0";
     $installSpatiePermission = isset($data['spatiePermission']) ? "1" : "0";
     $valetLink = isset($data['valetLink']) ? "1" : "0";
 
@@ -281,8 +282,9 @@ if (isset($_POST['create'])) {
             dbUser="\$6"
             dbPassword="\$7"
             installAdminLTE="\$8"
-            installSpatiePermission="\$9"
-            valetLink="\${10}"
+            installFilament="\$9"
+            installSpatiePermission="\${10}"
+            valetLink="\${11}"
             
             fullProjectPath="\$projectPath/\$projectName"
             
@@ -329,7 +331,12 @@ if (isset($_POST['create'])) {
             fi
             
             if [ "\$projectType" = "api" ] || [ "\$projectType" = "monolithic" ]; then
-                composer require laravel/tinker
+                composer require laravel/tinker --dev
+            fi
+            
+            if [ "\$installFilament" = "1" ]; then
+                composer require filament/filament &&
+                php artisan filament:install --panels
             fi
             
             if [ "\$installAdminLTE" = "1" ]; then
@@ -360,6 +367,7 @@ if (isset($_POST['create'])) {
         . escapeshellarg($dbUser) . " "
         . escapeshellarg($dbPassword) . " "
         . escapeshellarg($installAdminLTE) . " "
+        . escapeshellarg($installFilament) . " "
         . escapeshellarg($installSpatiePermission) . " "
         . escapeshellarg($valetLink) . " "
         . " > /dev/null 2>&1 &";
@@ -434,7 +442,7 @@ if (isset($_POST['create'])) {
                         <div class="row">
                             <?php
                             foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
-                                if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
+                                if (basename($dir) . $domain != $_SERVER['HTTP_HOST']) {
                                     $dir = basename($dir);
                                     $link = new Link($dir,LinkType::Link);
                                     if (!$link->isExcluded() || $_SESSION['config'] ) {
@@ -474,7 +482,7 @@ if (isset($_POST['create'])) {
                             <div class="row">
                                 <?php
                                 foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
-                                    if (basename($dir).$domain != $_SERVER['HTTP_HOST']) {
+                                    if (basename($dir) . $domain != $_SERVER['HTTP_HOST']) {
                                         $dir = basename($dir);
                                         $link = new Link($dir,LinkType::Park);
                                         if (!$link->isExcluded() || $_SESSION['config']){
@@ -517,15 +525,15 @@ if (isset($_POST['create'])) {
                     <div id="type" class="my-2 d-flex justify-content-around">
                         <div class="my-1">
                             <input type="radio" id="api" name="create[type]" value="api" required/>
-                            <label for="name">API</label>
+                            <label for="api">API</label>
                         </div>
                         <div class="my-1">
                             <input type="radio" id="monolithic" name="create[type]" value="monolithic" required/>
-                            <label for="name">Monolithic</label>
+                            <label for="monolithic">Monolithic</label>
                         </div>
                         <div class="my-1">
                             <input type="radio" id="headless" name="create[type]" value="headless" required/>
-                            <label for="name">Headless</label>
+                            <label for="headless">Headless</label>
                         </div>
                     </div>
                     <hr>
@@ -560,6 +568,10 @@ if (isset($_POST['create'])) {
                             <label for="valetLink">Valet link the project</label>
                         </div>
                         <div class="my-1">
+                            <input type="checkbox" id="filament" name="create[filament]" value="filament"/>
+                            <label for="filament">Install Filament</label>
+                        </div>
+                        <div class="my-1">
                             <input type="checkbox" id="adminlte" name="create[adminlte]" value="adminlte"/>
                             <label for="adminlte">Install AdminLTE</label>
                         </div>
@@ -567,18 +579,18 @@ if (isset($_POST['create'])) {
                             <input type="checkbox" id="spatiePermission" name="create[spatiePermission]" value="spatiePermission"/>
                             <label for="spatiePermission">Install Spatie Permission</label>
                         </div>
-<!--                        <div class="my-1">-->
-<!--                            <input type="checkbox" id="enum" name="create[enum]" value="enum"/>-->
-<!--                            <label for="enum">Enum helpers</label>-->
-<!--                        </div>-->
-<!--                        <div class="my-1">-->
-<!--                            <input type="checkbox" id="dumpServer" name="create[dumpServer]" value="dumpServer"/>-->
-<!--                            <label for="dumpServer">Laravel Dump Server</label>-->
-<!--                        </div>-->
-<!--                        <div class="my-1">-->
-<!--                            <input type="checkbox" id="langHelper" name="create[langHelper]" value="langHelper"/>-->
-<!--                            <label for="langHelper">Lang Helper</label>-->
-<!--                        </div>-->
+                        <!--                        <div class="my-1">-->
+                        <!--                            <input type="checkbox" id="enum" name="create[enum]" value="enum"/>-->
+                        <!--                            <label for="enum">Enum helpers</label>-->
+                        <!--                        </div>-->
+                        <!--                        <div class="my-1">-->
+                        <!--                            <input type="checkbox" id="dumpServer" name="create[dumpServer]" value="dumpServer"/>-->
+                        <!--                            <label for="dumpServer">Laravel Dump Server</label>-->
+                        <!--                        </div>-->
+                        <!--                        <div class="my-1">-->
+                        <!--                            <input type="checkbox" id="langHelper" name="create[langHelper]" value="langHelper"/>-->
+                        <!--                            <label for="langHelper">Lang Helper</label>-->
+                        <!--                        </div>-->
                     </div>
                 </div>
                 <div class="modal-footer">
