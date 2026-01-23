@@ -148,6 +148,7 @@ class Config
                 'headers' => [
                     ['type'=>'link','domain'=>'phpmyadmin', 'name'=>'PHPMyAdmin','icon'=>'https://www.phpmyadmin.net/static/favicon.ico','target'=>'_blank'],
                     ['type'=>'link','domain'=>'phpinfo', 'name'=>'PHPInfo', 'icon'=> 'https://www.php.net/favicon.ico','target'=>'_blank'],
+                    ['type'=>'link','domain'=>'mails', 'name'=>'Mailpit', 'icon'=> 'https://mailpit.axllent.org/favicons/favicon-32x32.png','target'=>'_blank'],
                     ['type'=> 'tld']
                 ],
                 'app' => [
