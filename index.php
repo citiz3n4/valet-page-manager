@@ -127,7 +127,6 @@ class Nav
 
     }
 }
-
 class Config
 {
     private static ?array $data=null;
@@ -155,7 +154,7 @@ class Config
                     'name' => 'Valet Page Manager',
                     'icon' => 'https://valetlinux.plus/favicon.ico',
                     'tld' => $domain
-                ]
+                ],
             ];
             self::save();
         }
@@ -218,7 +217,86 @@ class Config
         self::save();
     }
 }
+class Page{
+    public static function links($configValet) {
+        $html = '';
+        foreach ($configValet->paths as $path) {
+            if (basename($path) == 'Sites') {
+                $html .= '<div class="card mb-4">';
+                $html .= '<div class="card-body">';
+                $html .= '<h5 class="card-title">Links</h5>';
+                $html .= '<div class="row">';
+                foreach (glob($path . '/*', GLOB_ONLYDIR) as $dir) {
+                    $dirName = basename($dir);
+                    if ($dirName . Config::get("app")["tld"] !== ($_SERVER['HTTP_HOST'] ?? '')) {
+                        $link = new Link($dirName, LinkType::Link);
+                        if (!$link->isExcluded() || !empty($_SESSION['config'])) {
+                            $html .= $link->card();
+                        }
+                    }
+                }
+                $html .= '</div>';
+                $html .= '</div>';
+                $html .= '</div>';
+            }
+            else {
+                $park = new Park($path);
+                if (!$park->isExcluded() || $_SESSION['config']) {
+                    $html .= '<div class="card mb-4">';
+                    $html .= '<div class="card-body">';
+                    if ($_SESSION['config']) {
+                        $html .= '<div class="mb-4">';
+                        $html .= '<div class="float-end">';
+                        if ($park->isExcluded()) {
+                            $html .= '
+                                <form action="" method="post" class="d-inline">
+                                    <input hidden="hidden" name="includePath" value="'.$park->path.'">
+                                    <button type="submit" class="btn btn-success">Include</button>
+                                </form>';
+                        }
+                        else {
+                            $html .= '
+                                <form action="" method="post" class="d-inline">
+                                    <input hidden="hidden" name="excludePath" value="'.$park->path.'">
+                                    <button type="submit" class="btn btn-warning">Exclude</button>
+                                </form>';
+                        }
+                        $html .= '</div>';
+                        $html .= '<h5 class="card-title">Park links : '.$park->path.'</h5>';
+                        $html .= '</div>';
+                    }
+                    else {
+                        $html .= '<h5 class="card-title">Park links : '.$park->path.'</h5>';
+                    }
+                    $html .= '<div class="row">';
+                    foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
+                        if (basename($dir) . Config::get("app")["tld"] != $_SERVER['HTTP_HOST']) {
+                            $dir = basename($dir);
+                            $link = new Link($dir,LinkType::Park);
+                            if (!$link->isExcluded() || $_SESSION['config']){
+                                $html .= $link->card();
+                            }
+                        }
+                    }
+                    $html .= '</div>';
+                    $html .= '</div>';
+                    $html .= '</div>';
+                }
+            }
+        }
+        return $html;
+    }
 
+    public static function phpversions() {
+        return 'phpversions';
+    }
+}
+
+if (isset($_GET['php_version'])){
+    $_SESSION['php_version'] = !isset($_SESSION['php_version']) || !$_SESSION['php_version'];
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
 if (isset($_GET['config'])){
     $_SESSION['config'] = !isset($_SESSION['config']) || !$_SESSION['config'];
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
@@ -249,7 +327,6 @@ if (isset($_POST['includePath'])) {
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
     exit();
 }
-
 if (isset($_POST['create'])) {
 
     $data = $_POST['create'];
@@ -382,224 +459,169 @@ if (isset($_POST['create'])) {
 ?>
 <!doctype html>
 <html lang="en">
-<head>
-    <meta charset="utf-8">
-    <title> <?= Config::get('app')['name'] ?> </title>
-    <link rel="icon" href="<?= Config::get('app')['icon'] ?>">
-    <!-- Bootstrap core CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
-    <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
-    <style>
-        .vl {
-            border-left: 2px solid;
-            height: 30px;
-            color: #6F7378;
-            margin-top: 5px;
-        }
-    </style>
-</head>
-<body>
+    <head>
+        <meta charset="utf-8">
+        <title> <?= Config::get('app')['name'] ?> </title>
+        <link rel="icon" href="<?= Config::get('app')['icon'] ?>">
+        <!-- Bootstrap core CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/js/bootstrap.bundle.min.js" integrity="sha384-MrcW6ZMFYlzcLA8Nl+NtUVF0sA7MsXsP1UyJoMp4YLEuNSfAP+JcXn/tWtIaxVXM" crossorigin="anonymous"></script>
+        <style>
+            .vl {
+                border-left: 2px solid;
+                height: 30px;
+                color: #6F7378;
+                margin-top: 5px;
+            }
+        </style>
+    </head>
+    <body>
+        <!--NAVBAR-->
+        <nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
+            <div class="container-fluid">
+                <div class="collapse navbar-collapse" id="navbarCollapse">
+                    <ul class="navbar-nav w-100 mb-2 mb-md-0">
+                        <?=
 
-
-<nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
-    <div class="container-fluid">
-        <div class="collapse navbar-collapse" id="navbarCollapse">
-            <ul class="navbar-nav w-100 mb-2 mb-md-0">
-                <?=
-
-                implode(
-                    '<div class="vl"></div>',
-                    array_map(fn($item) => match ($item['type']) {
-                        'tld' => Nav::item('TLD : ' . $domain),
-                        default => Nav::ItemButton('http://'.$item['domain'].Config::get('app')['tld'], $item['name'],$item['icon'] ?? null,$item['target']??null),
-                    }, Config::get('headers'))
-                )
-                ?>
-            </ul>
-            <div class="float-end mx-1">
-                <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">Create</button>
-            </div>
-            <div class="float-end mx-1">
-                <a href=".?config=1" class="btn <?= ($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary' ?>">Settings</a>
-            </div>
-        </div>
-    </div>
-</nav>
-
-<?php if(isset($_GET['create'])): ?>
-    <div class="w-25 mx-auto text-center alert alert-primary" role="alert">
-        Your project <?= $_GET['create'] ?> is being created in the background.
-    </div>
-<?php endif; ?>
-
-<main class="container">
-    <div class="row">
-        <?php foreach ($configValet->paths as $path): ?>
-            <?php if (basename($path) == 'Sites'): ?>
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h5 class="card-title">Links</h5>
-                        <div class="row">
-                            <?php
-                            foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
-                                if (basename($dir) . $domain != $_SERVER['HTTP_HOST']) {
-                                    $dir = basename($dir);
-                                    $link = new Link($dir,LinkType::Link);
-                                    if (!$link->isExcluded() || $_SESSION['config'] ) {
-                                        echo $link->card();
-                                    }
-                                }
-                            }?>
-                        </div>
+                        implode(
+                            '<div class="vl"></div>',
+                            array_map(fn($item) => match ($item['type']) {
+                                'tld' => Nav::item('TLD : ' . $domain),
+                                default => Nav::ItemButton('http://'.$item['domain'].Config::get('app')['tld'], $item['name'],$item['icon'] ?? null,$item['target']??null),
+                            }, Config::get('headers'))
+                        )
+                        ?>
+                    </ul>
+                    <div class="float-end mx-1">
+                        <a href=".?php_version=1" class="btn <?= ($_SESSION['php_version']??false) ? 'btn-primary' : 'btn-secondary' ?>">PHP Version</a>
+                    </div>
+                    <div class="float-end mx-1">
+                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">Create</button>
+                    </div>
+                    <div class="float-end mx-1">
+                        <a href=".?config=1" class="btn <?= ($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary' ?>">Settings</a>
                     </div>
                 </div>
-            <?php else: ?>
-                <?php $park = new Park($path); ?>
-                <?php if (!$park->isExcluded() || $_SESSION['config']) : ?>
-                    <div class="card mb-4">
-                        <div class="card-body">
-                            <?php if ($_SESSION['config']): ?>
-                                <div class="mb-4">
-                                    <div class="float-end">
-                                        <?php if ($park->isExcluded()): ?>
-                                            <form action="" method="post" class="d-inline">
-                                                <input hidden="hidden" name="includePath" value="<?= $park->path ?>">
-                                                <button type="submit" class="btn btn-success">Include</button>
-                                            </form>
-                                        <?php else: ?>
-                                            <form action="" method="post" class="d-inline">
-                                                <input hidden="hidden" name="excludePath" value="<?= $park->path ?>">
-                                                <button type="submit" class="btn btn-warning">Exclude</button>
-                                            </form>
-                                        <?php endif; ?>
-                                    </div>
-                                    <h5 class="card-title">Park links : <?= $park->path ?></h5>
-                                </div>
-                            <?php else : ?>
-                                <h5 class="card-title">Park links : <?= $park->path ?></h5>
-                            <?php endif; ?>
+            </div>
+        </nav>
 
-                            <div class="row">
-                                <?php
-                                foreach(glob($path.'/*',GLOB_ONLYDIR) as $dir){
-                                    if (basename($dir) . $domain != $_SERVER['HTTP_HOST']) {
-                                        $dir = basename($dir);
-                                        $link = new Link($dir,LinkType::Park);
-                                        if (!$link->isExcluded() || $_SESSION['config']){
-                                            echo $link->card();
-                                        }
-                                    }
-                                }?>
+        <?php if(isset($_GET['create'])): ?>
+        <div class="w-25 mx-auto text-center alert alert-primary" role="alert">
+            Your project <?= $_GET['create'] ?> is being created in the background.
+        </div>
+        <?php endif; ?>
+
+        <main class="container">
+            <div class="row">
+                <?php if ($_SESSION['php_version']): ?>
+                <?= Page::phpversions() ?>
+                <?php else : ?>
+                <?= Page::links($configValet) ?>
+                <?php endif; ?>
+            </div>
+        </main>
+
+        <!-- Modal for the create project feature -->
+        <div class="modal fade" id="createModal" role="dialog" aria-hidden="true">
+            <div class="modal-dialog modal-lg">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title" id="createModal">Create a new project</h5>
+                        <button type="button" class="close btn" data-bs-dismiss="modal" aria-label="Close">
+                            <span aria-hidden="true">&times;</span>
+                        </button>
+                    </div>
+                    <form action="" method="POST">
+                        <div class="modal-body">
+                            <div class="my-2">
+                                <label for="name">Project's name : </label>
+                                <input class="form-control" id="name" name="create[name]" oninput="document.getElementById('dbName').value = this.value; document.getElementById('submitButton').innerHTML = 'Create '+this.value; document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/'+this.value" required/>
+                            </div>
+                            <div class="my-2">
+                                <label for="path">Folder where the project will be created : </label>
+                                <input class="form-control" id="path" name="create[path]" oninput="document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/" value="/home/<?= $user ?>" required/>
+                                <small class="text-muted" id="pathSmall"></small>
+                            </div>
+                            <hr>
+                            <label for="type">What type of project do you want to create ? </label>
+                            <div id="type" class="my-2 d-flex justify-content-around">
+                                <div class="my-1">
+                                    <input type="radio" id="api" name="create[type]" value="api" required/>
+                                    <label for="api">API</label>
+                                </div>
+                                <div class="my-1">
+                                    <input type="radio" id="monolithic" name="create[type]" value="monolithic" required/>
+                                    <label for="monolithic">Monolithic</label>
+                                </div>
+                                <div class="my-1">
+                                    <input type="radio" id="headless" name="create[type]" value="headless" required/>
+                                    <label for="headless">Headless</label>
+                                </div>
+                            </div>
+                            <hr>
+                            <label for="dbType">What kind of SGBD do you want to use ?</label>
+                            <div id="dbType" class="my-2 d-flex justify-content-around">
+                                <div class="my-1">
+                                    <input type="radio" id="sqlite" name="create[dbType]" value="sqlite" oninput="document.getElementById('dbName').disabled = true; document.getElementById('dbUser').disabled = true; document.getElementById('dbPassword').disabled = true;" required/>
+                                    <label for="name">SQLite</label>
+                                </div>
+                                <div class="my-1">
+                                    <input type="radio" id="mysql" name="create[dbType]" value="mysql" oninput="document.getElementById('dbName').disabled = false; document.getElementById('dbUser').disabled = false; document.getElementById('dbPassword').disabled = false;" required/>
+                                    <label for="name">MySQL</label>
+                                </div>
+                            </div>
+                            <div class="my-2">
+                                <label for="dbName">Database's name : </label>
+                                <input class="form-control" id="dbName" name="create[dbName]" onclick="this.value = document.getElementById('name').value"/>
+                            </div>
+                            <div class="my-2">
+                                <label for="dbUser">Database's username : </label>
+                                <input class="form-control" id="dbUser" name="create[dbUser]" value="usersio"/>
+                            </div>
+                            <div class="my-2">
+                                <label for="dbPassword">Database's user's password : </label>
+                                <input type="password" class="form-control" id="dbPassword" name="create[dbPassword]" value="pwsio"/>
+                            </div>
+                            <hr>
+                            <label for="addons">Options : </label>
+                            <div id="addons" class="my-2 d-flex justify-content-around">
+                                <div class="my-1">
+                                    <input type="checkbox" id="valetLink" name="create[valetLink]" value="valetLink"/>
+                                    <label for="valetLink">Valet link the project</label>
+                                </div>
+                                <div class="my-1">
+                                    <input type="checkbox" id="filament" name="create[filament]" value="filament"/>
+                                    <label for="filament">Install Filament</label>
+                                </div>
+                                <div class="my-1">
+                                    <input type="checkbox" id="adminlte" name="create[adminlte]" value="adminlte"/>
+                                    <label for="adminlte">Install AdminLTE</label>
+                                </div>
+                                <div class="my-1">
+                                    <input type="checkbox" id="spatiePermission" name="create[spatiePermission]" value="spatiePermission"/>
+                                    <label for="spatiePermission">Install Spatie Permission</label>
+                                </div>
+                                <!--                        <div class="my-1">-->
+                                <!--                            <input type="checkbox" id="enum" name="create[enum]" value="enum"/>-->
+                                <!--                            <label for="enum">Enum helpers</label>-->
+                                <!--                        </div>-->
+                                <!--                        <div class="my-1">-->
+                                <!--                            <input type="checkbox" id="dumpServer" name="create[dumpServer]" value="dumpServer"/>-->
+                                <!--                            <label for="dumpServer">Laravel Dump Server</label>-->
+                                <!--                        </div>-->
+                                <!--                        <div class="my-1">-->
+                                <!--                            <input type="checkbox" id="langHelper" name="create[langHelper]" value="langHelper"/>-->
+                                <!--                            <label for="langHelper">Lang Helper</label>-->
+                                <!--                        </div>-->
                             </div>
                         </div>
-                    </div>
-                <?php endif; ?>
-            <?php endif; ?>
-        <?php endforeach; ?>
-    </div>
-</main>
-
-<!-- Modal for the create project feature -->
-<div class="modal fade" id="createModal" role="dialog" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createModal">Create a new project</h5>
-                <button type="button" class="close btn" data-bs-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
+                        <div class="modal-footer">
+                            <button type="submit" class="btn btn-primary" id="submitButton">Create the project</button>
+                        </div>
+                    </form>
+                </div>
             </div>
-            <form action="" method="POST">
-                <div class="modal-body">
-                    <div class="my-2">
-                        <label for="name">Project's name : </label>
-                        <input class="form-control" id="name" name="create[name]" oninput="document.getElementById('dbName').value = this.value; document.getElementById('submitButton').innerHTML = 'Create '+this.value; document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/'+this.value" required/>
-                    </div>
-                    <div class="my-2">
-                        <label for="path">Folder where the project will be created : </label>
-                        <input class="form-control" id="path" name="create[path]" oninput="document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/" value="/home/<?= $user ?>" required/>
-                        <small class="text-muted" id="pathSmall"></small>
-                    </div>
-                    <hr>
-                    <label for="type">What type of project do you want to create ? </label>
-                    <div id="type" class="my-2 d-flex justify-content-around">
-                        <div class="my-1">
-                            <input type="radio" id="api" name="create[type]" value="api" required/>
-                            <label for="api">API</label>
-                        </div>
-                        <div class="my-1">
-                            <input type="radio" id="monolithic" name="create[type]" value="monolithic" required/>
-                            <label for="monolithic">Monolithic</label>
-                        </div>
-                        <div class="my-1">
-                            <input type="radio" id="headless" name="create[type]" value="headless" required/>
-                            <label for="headless">Headless</label>
-                        </div>
-                    </div>
-                    <hr>
-                    <label for="dbType">What kind of SGBD do you want to use ?</label>
-                    <div id="dbType" class="my-2 d-flex justify-content-around">
-                        <div class="my-1">
-                            <input type="radio" id="sqlite" name="create[dbType]" value="sqlite" oninput="document.getElementById('dbName').disabled = true; document.getElementById('dbUser').disabled = true; document.getElementById('dbPassword').disabled = true;" required/>
-                            <label for="name">SQLite</label>
-                        </div>
-                        <div class="my-1">
-                            <input type="radio" id="mysql" name="create[dbType]" value="mysql" oninput="document.getElementById('dbName').disabled = false; document.getElementById('dbUser').disabled = false; document.getElementById('dbPassword').disabled = false;" required/>
-                            <label for="name">MySQL</label>
-                        </div>
-                    </div>
-                    <div class="my-2">
-                        <label for="dbName">Database's name : </label>
-                        <input class="form-control" id="dbName" name="create[dbName]" onclick="this.value = document.getElementById('name').value"/>
-                    </div>
-                    <div class="my-2">
-                        <label for="dbUser">Database's username : </label>
-                        <input class="form-control" id="dbUser" name="create[dbUser]" value="usersio"/>
-                    </div>
-                    <div class="my-2">
-                        <label for="dbPassword">Database's user's password : </label>
-                        <input type="password" class="form-control" id="dbPassword" name="create[dbPassword]" value="pwsio"/>
-                    </div>
-                    <hr>
-                    <label for="addons">Options : </label>
-                    <div id="addons" class="my-2 d-flex justify-content-around">
-                        <div class="my-1">
-                            <input type="checkbox" id="valetLink" name="create[valetLink]" value="valetLink"/>
-                            <label for="valetLink">Valet link the project</label>
-                        </div>
-                        <div class="my-1">
-                            <input type="checkbox" id="filament" name="create[filament]" value="filament"/>
-                            <label for="filament">Install Filament</label>
-                        </div>
-                        <div class="my-1">
-                            <input type="checkbox" id="adminlte" name="create[adminlte]" value="adminlte"/>
-                            <label for="adminlte">Install AdminLTE</label>
-                        </div>
-                        <div class="my-1">
-                            <input type="checkbox" id="spatiePermission" name="create[spatiePermission]" value="spatiePermission"/>
-                            <label for="spatiePermission">Install Spatie Permission</label>
-                        </div>
-                        <!--                        <div class="my-1">-->
-                        <!--                            <input type="checkbox" id="enum" name="create[enum]" value="enum"/>-->
-                        <!--                            <label for="enum">Enum helpers</label>-->
-                        <!--                        </div>-->
-                        <!--                        <div class="my-1">-->
-                        <!--                            <input type="checkbox" id="dumpServer" name="create[dumpServer]" value="dumpServer"/>-->
-                        <!--                            <label for="dumpServer">Laravel Dump Server</label>-->
-                        <!--                        </div>-->
-                        <!--                        <div class="my-1">-->
-                        <!--                            <input type="checkbox" id="langHelper" name="create[langHelper]" value="langHelper"/>-->
-                        <!--                            <label for="langHelper">Lang Helper</label>-->
-                        <!--                        </div>-->
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="submit" class="btn btn-primary" id="submitButton">Create the project</button>
-                </div>
-            </form>
         </div>
-    </div>
-</div>
-</body>
+    </body>
 </html>
