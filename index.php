@@ -293,11 +293,17 @@ class Page{
 }
 
 if (isset($_GET['php_version'])){
+    if (isset($_SESSION['config'])) {
+        $_SESSION['config'] = !isset($_SESSION['config']);
+    }
     $_SESSION['php_version'] = !isset($_SESSION['php_version']) || !$_SESSION['php_version'];
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
     exit();
 }
 if (isset($_GET['config'])){
+    if (isset($_SESSION['php_version'])) {
+        $_SESSION['php_version'] = !isset($_SESSION['php_version']);
+    }
     $_SESSION['config'] = !isset($_SESSION['config']) || !$_SESSION['config'];
     header( "Location: http://{$_SERVER['SERVER_NAME']}");
     exit();
