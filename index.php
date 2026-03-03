@@ -6,7 +6,7 @@ $configValet = json_decode($configValet);
 $domain = '.'.$configValet->domain;
 Config::setTld($domain);
 $_SESSION['config'] = $_SESSION['config'] ?? false;
-
+$_SESSION['php_version'] = $_SESSION['php_version'] ?? false;
 
 function valetUnlink($project): void {
     exec('valet unlink '.$project);
@@ -17,7 +17,52 @@ enum LinkType {
     case Park;
 }
 
-class Link {
+class Php {
+    public $php_name;
+    public $php_version;
+    public $is_used;
+
+    public function __construct($php_version)
+    {
+        $this->php_version = $php_version;
+        $this->php_name = 'Php '.$php_version;
+        if (str_contains($php_version, phpversion())) {
+            $this->is_used = true;
+        }else{
+            $this->is_used = false;
+        }
+
+    }
+    public function card(): string
+    {
+        $html = '<div class="col-3">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h5 class="card-title">'.$this->php_name.'</h5>';
+
+        if ($this->is_used) {
+            $html .= '<button class="btn btn-success" disabled style="opacity: 100">In Use</button>';
+        }else{
+            $html .= '<form action="" method="post" class="d-inline">
+                          <input hidden="hidden" name="changePhpVersion" value="'.$this->php_version.'">
+                          <button type="submit" class="btn btn-warning">Use</button>
+                      </form>';
+        }
+
+        $html .= '        </div>';
+        $html .= '    </div>';
+        $html .= '</div>';
+
+        return $html;
+    }
+    public static function getAllVersions(): array {
+        return ['8.2', '8.3', '8.4', '8.5.3'];
+    }
+//    public static function changeVersion(): void {²
+//        $this->is_used = true;
+//    }
+}
+class Link{
     public bool $secure = false;
     public string $fileName;
     public string $link;
@@ -218,7 +263,8 @@ class Config
     }
 }
 class Page{
-    public static function links($configValet) {
+    public static function links($configValet): string
+    {
         $html = '';
         foreach ($configValet->paths as $path) {
             if (basename($path) == 'Sites') {
@@ -286,9 +332,161 @@ class Page{
         }
         return $html;
     }
+    public static function phpversions(): string
+    {
+        $html = '<div class="card mb-4">';
+        $html .= '    <div class="card-body">';
+        $html .= '    <h5 class="card-title">PHP Versions</h5>';
+        $html .= '    <div class="row">';
+        foreach (Php::getAllVersions() as $phpversion) {
+            $phpversion = new Php($phpversion);
+            $html .= $phpversion->card();
+        }
+        $html .= '        </div>';
+        $html .= '    </div>';
+        $html .= '</div>';
 
-    public static function phpversions() {
-        return 'phpversions';
+        return $html;
+    }
+    public static function createmodal($user): string{
+        $html = <<<HTML
+            <div class="modal fade" id="createModal" role="dialog" aria-hidden="true">
+                        <div class="modal-dialog modal-lg">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="createModal">Create a new project</h5>
+                                    <button type="button" class="close btn" data-bs-dismiss="modal" aria-label="Close">
+                                        <span aria-hidden="true">&times;</span>
+                                    </button>
+                                </div>
+                                <form action="" method="POST">
+                                    <div class="modal-body">
+                                        <div class="my-2">
+                                            <label for="name">Project\'s name : </label>
+                                            <input class="form-control" id="name" name="create[name]" oninput="document.getElementById('dbName').value = this.value; document.getElementById('submitButton').innerHTML = 'Create '+this.value; document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/'+this.value" required/>
+                                        </div>
+                                        <div class="my-2">
+                                            <label for="path">Folder where the project will be created : </label>
+                                            <input class="form-control" id="path" name="create[path]" oninput="document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/" value="/home/$user" required/>
+                                            <small class="text-muted" id="pathSmall"></small>
+                                        </div>
+                                        <hr>
+                                        <label for="type">What type of project do you want to create ? </label>
+                                        <div id="type" class="my-2 d-flex justify-content-around">
+                                            <div class="my-1">
+                                                <input type="radio" id="api" name="create[type]" value="api" required/>
+                                                <label for="api">API</label>
+                                            </div>
+                                            <div class="my-1">
+                                                <input type="radio" id="monolithic" name="create[type]" value="monolithic" required/>
+                                                <label for="monolithic">Monolithic</label>
+                                            </div>
+                                            <div class="my-1">
+                                                <input type="radio" id="headless" name="create[type]" value="headless" required/>
+                                                <label for="headless">Headless</label>
+                                            </div>
+                                        </div>
+                                        <hr>
+                                        <label for="dbType">What kind of SGBD do you want to use ?</label>
+                                        <div id="dbType" class="my-2 d-flex justify-content-around">
+                                            <div class="my-1">
+                                                <input type="radio" id="sqlite" name="create[dbType]" value="sqlite" oninput="document.getElementById('dbName').disabled = true; document.getElementById('dbUser').disabled = true; document.getElementById('dbPassword').disabled = true;" required/>
+                                                <label for="name">SQLite</label>
+                                            </div>
+                                            <div class="my-1">
+                                                <input type="radio" id="mysql" name="create[dbType]" value="mysql" oninput="document.getElementById('dbName').disabled = false; document.getElementById('dbUser').disabled = false; document.getElementById('dbPassword').disabled = false;" required/>
+                                                <label for="name">MySQL</label>
+                                            </div>
+                                        </div>
+                                        <div class="my-2">
+                                            <label for="dbName">Database's name : </label>
+                                            <input class="form-control" id="dbName" name="create[dbName]" onclick="this.value = document.getElementById('name').value"/>
+                                        </div>
+                                        <div class="my-2">
+                                            <label for="dbUser">Database's username : </label>
+                                            <input class="form-control" id="dbUser" name="create[dbUser]" value="usersio"/>
+                                        </div>
+                                        <div class="my-2">
+                                            <label for="dbPassword">Database's user's password : </label>
+                                            <input type="password" class="form-control" id="dbPassword" name="create[dbPassword]" value="pwsio"/>
+                                        </div>
+                                        <hr>
+                                        <label for="addons">Options : </label>
+                                        <div id="addons" class="my-2 d-flex justify-content-around">
+                                            <div class="my-1">
+                                                <input type="checkbox" id="valetLink" name="create[valetLink]" value="valetLink"/>
+                                                <label for="valetLink">Valet link the project</label>
+                                            </div>
+                                            <div class="my-1">
+                                                <input type="checkbox" id="filament" name="create[filament]" value="filament"/>
+                                                <label for="filament">Install Filament</label>
+                                            </div>
+                                            <div class="my-1">
+                                                <input type="checkbox" id="adminlte" name="create[adminlte]" value="adminlte"/>
+                                                <label for="adminlte">Install AdminLTE</label>
+                                            </div>
+                                            <div class="my-1">
+                                                <input type="checkbox" id="spatiePermission" name="create[spatiePermission]" value="spatiePermission"/>
+                                                <label for="spatiePermission">Install Spatie Permission</label>
+                                            </div>
+                                            <!--                        <div class="my-1">-->
+                                            <!--                            <input type="checkbox" id="enum" name="create[enum]" value="enum"/>-->
+                                            <!--                            <label for="enum">Enum helpers</label>-->
+                                            <!--                        </div>-->
+                                            <!--                        <div class="my-1">-->
+                                            <!--                            <input type="checkbox" id="dumpServer" name="create[dumpServer]" value="dumpServer"/>-->
+                                            <!--                            <label for="dumpServer">Laravel Dump Server</label>-->
+                                            <!--                        </div>-->
+                                            <!--                        <div class="my-1">-->
+                                            <!--                            <input type="checkbox" id="langHelper" name="create[langHelper]" value="langHelper"/>-->
+                                            <!--                            <label for="langHelper">Lang Helper</label>-->
+                                            <!--                        </div>-->
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="submit" class="btn btn-primary" id="submitButton">Create the project</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+        HTML;
+        return $html;
+
+    }
+    public static function navbar(): string{
+        $html = '<nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
+                    <div class="container-fluid">
+                        <div class="collapse navbar-collapse" id="navbarCollapse">';
+
+        $html .= '<ul class="navbar-nav w-100 mb-2 mb-md-0">';
+        $html .= implode(
+            '<div class="vl"></div>',
+            array_map(fn($item) => match ($item['type']) {
+                'tld' => Nav::item('TLD : ' . Config::get("app")["tld"]),
+                default => Nav::ItemButton('http://'.$item['domain'].Config::get('app')['tld'], $item['name'],$item['icon'] ?? null,$item['target']??null),
+            }, Config::get('headers'))
+        );
+        $html .= '</ul>';
+
+        $html .= ' <div class="float-end mx-1">
+                        <a href=".?php_version=1" class="btn '.(($_SESSION['php_version']??false) ? 'btn-primary' : 'btn-secondary').'">PHP Version</a>
+                    </div>';
+        $html .= '<div class="float-end mx-1">
+                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">Create</button>
+                    </div>';
+        $html .= '<div class="float-end mx-1">
+                        <a href=".?config=1" class="btn '.(($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary').'">Settings</a>
+                    </div>';
+
+        $html .= '</div></div></nav>';
+
+        return $html;
+    }
+    public static function creating(): string{
+        return '<div class="w-25 mx-auto text-center alert alert-primary" role="alert">
+                    Your project '.$_GET['create'].' is being created in the background.
+                </div>';
     }
 }
 
@@ -461,6 +659,9 @@ if (isset($_POST['create'])) {
     header("Location: http://{$_SERVER['SERVER_NAME']}?create=$projectName");
     exit();
 }
+if (isset($_POST['changePhpVersion'])) {
+    Php::changeVersion($_POST['changePhpVersion']);
+}
 
 ?>
 <!doctype html>
@@ -484,38 +685,10 @@ if (isset($_POST['create'])) {
     </head>
     <body>
         <!--NAVBAR-->
-        <nav class="navbar navbar-expand-md navbar-dark bg-dark mb-4">
-            <div class="container-fluid">
-                <div class="collapse navbar-collapse" id="navbarCollapse">
-                    <ul class="navbar-nav w-100 mb-2 mb-md-0">
-                        <?=
-
-                        implode(
-                            '<div class="vl"></div>',
-                            array_map(fn($item) => match ($item['type']) {
-                                'tld' => Nav::item('TLD : ' . $domain),
-                                default => Nav::ItemButton('http://'.$item['domain'].Config::get('app')['tld'], $item['name'],$item['icon'] ?? null,$item['target']??null),
-                            }, Config::get('headers'))
-                        )
-                        ?>
-                    </ul>
-                    <div class="float-end mx-1">
-                        <a href=".?php_version=1" class="btn <?= ($_SESSION['php_version']??false) ? 'btn-primary' : 'btn-secondary' ?>">PHP Version</a>
-                    </div>
-                    <div class="float-end mx-1">
-                        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">Create</button>
-                    </div>
-                    <div class="float-end mx-1">
-                        <a href=".?config=1" class="btn <?= ($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary' ?>">Settings</a>
-                    </div>
-                </div>
-            </div>
-        </nav>
+        <?= Page::navbar() ?>
 
         <?php if(isset($_GET['create'])): ?>
-        <div class="w-25 mx-auto text-center alert alert-primary" role="alert">
-            Your project <?= $_GET['create'] ?> is being created in the background.
-        </div>
+        <?= Page::creating() ?>
         <?php endif; ?>
 
         <main class="container">
@@ -529,105 +702,6 @@ if (isset($_POST['create'])) {
         </main>
 
         <!-- Modal for the create project feature -->
-        <div class="modal fade" id="createModal" role="dialog" aria-hidden="true">
-            <div class="modal-dialog modal-lg">
-                <div class="modal-content">
-                    <div class="modal-header">
-                        <h5 class="modal-title" id="createModal">Create a new project</h5>
-                        <button type="button" class="close btn" data-bs-dismiss="modal" aria-label="Close">
-                            <span aria-hidden="true">&times;</span>
-                        </button>
-                    </div>
-                    <form action="" method="POST">
-                        <div class="modal-body">
-                            <div class="my-2">
-                                <label for="name">Project's name : </label>
-                                <input class="form-control" id="name" name="create[name]" oninput="document.getElementById('dbName').value = this.value; document.getElementById('submitButton').innerHTML = 'Create '+this.value; document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/'+this.value" required/>
-                            </div>
-                            <div class="my-2">
-                                <label for="path">Folder where the project will be created : </label>
-                                <input class="form-control" id="path" name="create[path]" oninput="document.getElementById('pathSmall').innerHTML = 'For example if you put /home/usersio/code the project will be in /home/usersio/code/" value="/home/<?= $user ?>" required/>
-                                <small class="text-muted" id="pathSmall"></small>
-                            </div>
-                            <hr>
-                            <label for="type">What type of project do you want to create ? </label>
-                            <div id="type" class="my-2 d-flex justify-content-around">
-                                <div class="my-1">
-                                    <input type="radio" id="api" name="create[type]" value="api" required/>
-                                    <label for="api">API</label>
-                                </div>
-                                <div class="my-1">
-                                    <input type="radio" id="monolithic" name="create[type]" value="monolithic" required/>
-                                    <label for="monolithic">Monolithic</label>
-                                </div>
-                                <div class="my-1">
-                                    <input type="radio" id="headless" name="create[type]" value="headless" required/>
-                                    <label for="headless">Headless</label>
-                                </div>
-                            </div>
-                            <hr>
-                            <label for="dbType">What kind of SGBD do you want to use ?</label>
-                            <div id="dbType" class="my-2 d-flex justify-content-around">
-                                <div class="my-1">
-                                    <input type="radio" id="sqlite" name="create[dbType]" value="sqlite" oninput="document.getElementById('dbName').disabled = true; document.getElementById('dbUser').disabled = true; document.getElementById('dbPassword').disabled = true;" required/>
-                                    <label for="name">SQLite</label>
-                                </div>
-                                <div class="my-1">
-                                    <input type="radio" id="mysql" name="create[dbType]" value="mysql" oninput="document.getElementById('dbName').disabled = false; document.getElementById('dbUser').disabled = false; document.getElementById('dbPassword').disabled = false;" required/>
-                                    <label for="name">MySQL</label>
-                                </div>
-                            </div>
-                            <div class="my-2">
-                                <label for="dbName">Database's name : </label>
-                                <input class="form-control" id="dbName" name="create[dbName]" onclick="this.value = document.getElementById('name').value"/>
-                            </div>
-                            <div class="my-2">
-                                <label for="dbUser">Database's username : </label>
-                                <input class="form-control" id="dbUser" name="create[dbUser]" value="usersio"/>
-                            </div>
-                            <div class="my-2">
-                                <label for="dbPassword">Database's user's password : </label>
-                                <input type="password" class="form-control" id="dbPassword" name="create[dbPassword]" value="pwsio"/>
-                            </div>
-                            <hr>
-                            <label for="addons">Options : </label>
-                            <div id="addons" class="my-2 d-flex justify-content-around">
-                                <div class="my-1">
-                                    <input type="checkbox" id="valetLink" name="create[valetLink]" value="valetLink"/>
-                                    <label for="valetLink">Valet link the project</label>
-                                </div>
-                                <div class="my-1">
-                                    <input type="checkbox" id="filament" name="create[filament]" value="filament"/>
-                                    <label for="filament">Install Filament</label>
-                                </div>
-                                <div class="my-1">
-                                    <input type="checkbox" id="adminlte" name="create[adminlte]" value="adminlte"/>
-                                    <label for="adminlte">Install AdminLTE</label>
-                                </div>
-                                <div class="my-1">
-                                    <input type="checkbox" id="spatiePermission" name="create[spatiePermission]" value="spatiePermission"/>
-                                    <label for="spatiePermission">Install Spatie Permission</label>
-                                </div>
-                                <!--                        <div class="my-1">-->
-                                <!--                            <input type="checkbox" id="enum" name="create[enum]" value="enum"/>-->
-                                <!--                            <label for="enum">Enum helpers</label>-->
-                                <!--                        </div>-->
-                                <!--                        <div class="my-1">-->
-                                <!--                            <input type="checkbox" id="dumpServer" name="create[dumpServer]" value="dumpServer"/>-->
-                                <!--                            <label for="dumpServer">Laravel Dump Server</label>-->
-                                <!--                        </div>-->
-                                <!--                        <div class="my-1">-->
-                                <!--                            <input type="checkbox" id="langHelper" name="create[langHelper]" value="langHelper"/>-->
-                                <!--                            <label for="langHelper">Lang Helper</label>-->
-                                <!--                        </div>-->
-                            </div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="submit" class="btn btn-primary" id="submitButton">Create the project</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
+        <?= Page::createmodal($user) ?>
     </body>
 </html>
