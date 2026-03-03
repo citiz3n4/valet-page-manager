@@ -7,6 +7,7 @@ $domain = '.'.$configValet->domain;
 Config::setTld($domain);
 $_SESSION['config'] = $_SESSION['config'] ?? false;
 $_SESSION['php_version'] = $_SESSION['php_version'] ?? false;
+$phpversions=[new Php("8.2"), new Php("8.3"), new Php("8.4"), new Php("8.5")];
 
 function valetUnlink($project): void {
     exec('valet unlink '.$project);
@@ -44,7 +45,7 @@ class Php {
             $html .= '<button class="btn btn-success" disabled style="opacity: 100">In Use</button>';
         }else{
             $html .= '<form action="" method="post" class="d-inline">
-                          <input hidden="hidden" name="changePhpVersion" value="'.$this->php_version.'">
+                          <input hidden="hidden" name="exclude" value="'.$this->php_version.'">
                           <button type="submit" class="btn btn-warning">Use</button>
                       </form>';
         }
@@ -55,12 +56,6 @@ class Php {
 
         return $html;
     }
-    public static function getAllVersions(): array {
-        return ['8.2', '8.3', '8.4', '8.5.3'];
-    }
-//    public static function changeVersion(): void {²
-//        $this->is_used = true;
-//    }
 }
 class Link{
     public bool $secure = false;
@@ -332,15 +327,14 @@ class Page{
         }
         return $html;
     }
-    public static function phpversions(): string
+    public static function phpversions($phpversions): string
     {
         $html = '<div class="card mb-4">';
         $html .= '    <div class="card-body">';
         $html .= '    <h5 class="card-title">PHP Versions</h5>';
         $html .= '    <div class="row">';
-        foreach (Php::getAllVersions() as $phpversion) {
-            $phpversion = new Php($phpversion);
-            $html .= $phpversion->card();
+        foreach ($phpversions as $php) {
+            $html .= $php->card();
         }
         $html .= '        </div>';
         $html .= '    </div>';
@@ -470,13 +464,13 @@ class Page{
         $html .= '</ul>';
 
         $html .= ' <div class="float-end mx-1">
-                        <a href=".?php_version=1" class="btn '.(($_SESSION['php_version']??false) ? 'btn-primary' : 'btn-secondary').'">PHP Version</a>
+                        <a href=".?php_version=1" class="btn '.(($_SESSION['php_version']??false) ? 'btn-primary' : 'btn-secondary').'">'.(($_SESSION['php_version']??false) ? 'Accueil' : 'PHP Version').'</a>
                     </div>';
         $html .= '<div class="float-end mx-1">
                         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">Create</button>
                     </div>';
         $html .= '<div class="float-end mx-1">
-                        <a href=".?config=1" class="btn '.(($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary').'">Settings</a>
+                        <a href=".?config=1" class="btn '.(($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary').'">'.(($_SESSION['config']??false) ? 'Accueil' : 'Configuration').'</a>
                     </div>';
 
         $html .= '</div></div></nav>';
@@ -659,9 +653,6 @@ if (isset($_POST['create'])) {
     header("Location: http://{$_SERVER['SERVER_NAME']}?create=$projectName");
     exit();
 }
-if (isset($_POST['changePhpVersion'])) {
-    Php::changeVersion($_POST['changePhpVersion']);
-}
 
 ?>
 <!doctype html>
@@ -694,7 +685,7 @@ if (isset($_POST['changePhpVersion'])) {
         <main class="container">
             <div class="row">
                 <?php if ($_SESSION['php_version']): ?>
-                <?= Page::phpversions() ?>
+                <?= Page::phpversions($phpversions) ?>
                 <?php else : ?>
                 <?= Page::links($configValet) ?>
                 <?php endif; ?>
