@@ -1,16 +1,31 @@
 <?php
 session_start();
 $user = exec('whoami');
+$userPassword = "citizen4";
 $configValet = file_get_contents("/home/$user/.config/valet/config.json");
 $configValet = json_decode($configValet);
 $domain = '.'.$configValet->domain;
 Config::setTld($domain);
+
 $_SESSION['config'] = $_SESSION['config'] ?? false;
 $_SESSION['php_version'] = $_SESSION['php_version'] ?? false;
-$phpversions=[new Php("8.2"), new Php("8.3"), new Php("8.4"), new Php("8.5")];
+
+exec("update-alternatives --list php", $phpVersions);
+$phpVersions = array_filter($phpVersions, fn($v) => $v != "/usr/bin/php.default");
+
+if (empty($phpVersions)) {
+    $_SESSION['hasManyPhp'] = false;
+}else{
+    $_SESSION['hasManyPhp'] = true;
+}
 
 function valetUnlink($project): void {
     exec('valet unlink '.$project);
+}
+
+function changePhpVersion($phpVersion, $password): void {
+    $command = "echo ".$password." | sudo -S update-alternatives --set php ".$phpVersion;
+    exec($command);
 }
 
 enum LinkType {
@@ -19,15 +34,17 @@ enum LinkType {
 }
 
 class Php {
-    public $php_name;
-    public $php_version;
+    public $name;
+    public $version;
     public $is_used;
+    public $path;
 
-    public function __construct($php_version)
+    public function __construct($path)
     {
-        $this->php_version = $php_version;
-        $this->php_name = 'Php '.$php_version;
-        if (str_contains($php_version, phpversion())) {
+        $this->version = str_replace("php", "", basename($path));
+        $this->name = 'Php '.$this->version;
+        $this->path = $path;
+        if (str_contains(phpversion(), $this->version)) {
             $this->is_used = true;
         }else{
             $this->is_used = false;
@@ -39,13 +56,15 @@ class Php {
         $html = '<div class="col-3">
                         <div class="card mb-4">
                             <div class="card-body">
-                                <h5 class="card-title">'.$this->php_name.'</h5>';
+                                <h5 class="card-title">'.$this->name.'</h5>
+                                <p class="card-text"><i>'.$this->path.'</i></p>
+                                ';
 
         if ($this->is_used) {
             $html .= '<button class="btn btn-success" disabled style="opacity: 100">In Use</button>';
         }else{
             $html .= '<form action="" method="post" class="d-inline">
-                          <input hidden="hidden" name="exclude" value="'.$this->php_version.'">
+                          <input hidden="hidden" name="changePhpVersion" value="'.$this->path.'">
                           <button type="submit" class="btn btn-warning">Use</button>
                       </form>';
         }
@@ -327,13 +346,14 @@ class Page{
         }
         return $html;
     }
-    public static function phpversions($phpversions): string
+    public static function phpversions($phpVersions): string
     {
         $html = '<div class="card mb-4">';
         $html .= '    <div class="card-body">';
         $html .= '    <h5 class="card-title">PHP Versions</h5>';
         $html .= '    <div class="row">';
-        foreach ($phpversions as $php) {
+        foreach ($phpVersions as $phpVersion) {
+            $php = new Php($phpVersion);
             $html .= $php->card();
         }
         $html .= '        </div>';
@@ -463,14 +483,16 @@ class Page{
         );
         $html .= '</ul>';
 
-        $html .= ' <div class="float-end mx-1">
-                        <a href=".?php_version=1" class="btn '.(($_SESSION['php_version']??false) ? 'btn-primary' : 'btn-secondary').'">'.(($_SESSION['php_version']??false) ? 'Accueil' : 'PHP Version').'</a>
-                    </div>';
+        if ($_SESSION['hasManyPhp']) {
+            $html .= ' <div class="float-end mx-1">
+                            <a href=".?php_version=1" class="btn '.(($_SESSION['php_version']??false) ? 'btn-primary' : 'btn-secondary').'">'.(($_SESSION['php_version']??false) ? 'Home' : 'PHP Version').'</a>
+                        </div>';
+        }
         $html .= '<div class="float-end mx-1">
                         <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#createModal">Create</button>
                     </div>';
         $html .= '<div class="float-end mx-1">
-                        <a href=".?config=1" class="btn '.(($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary').'">'.(($_SESSION['config']??false) ? 'Accueil' : 'Configuration').'</a>
+                        <a href=".?config=1" class="btn '.(($_SESSION['config']??false) ? 'btn-primary' : 'btn-secondary').'">'.(($_SESSION['config']??false) ? 'Home' : 'Settings').'</a>
                     </div>';
 
         $html .= '</div></div></nav>';
@@ -653,6 +675,11 @@ if (isset($_POST['create'])) {
     header("Location: http://{$_SERVER['SERVER_NAME']}?create=$projectName");
     exit();
 }
+if (isset($_POST['changePhpVersion'])) {
+    changePhpVersion($_POST['changePhpVersion'], $userPassword);
+    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+    exit();
+}
 
 ?>
 <!doctype html>
@@ -684,10 +711,10 @@ if (isset($_POST['create'])) {
 
         <main class="container">
             <div class="row">
-                <?php if ($_SESSION['php_version']): ?>
-                <?= Page::phpversions($phpversions) ?>
+                <?php if ($_SESSION['php_version'] && $_SESSION['hasManyPhp']): ?>
+                    <?= Page::phpversions($phpVersions) ?>
                 <?php else : ?>
-                <?= Page::links($configValet) ?>
+                    <?= Page::links($configValet) ?>
                 <?php endif; ?>
             </div>
         </main>
