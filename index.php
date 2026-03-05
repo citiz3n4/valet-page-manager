@@ -5,6 +5,8 @@ $userPassword = "citizen4";
 $configValet = file_get_contents("/home/$user/.config/valet/config.json");
 $configValet = json_decode($configValet);
 $domain = '.'.$configValet->domain;
+$php_version = $configValet->php_version;
+Config::setPhpVersion($php_version);
 Config::setTld($domain);
 
 $_SESSION['config'] = $_SESSION['config'] ?? false;
@@ -23,9 +25,8 @@ function valetUnlink($project): void {
     exec('valet unlink '.$project);
 }
 
-function changePhpVersion($phpVersion, $password): void {
-    $command = "echo ".$password." | sudo -S update-alternatives --set php ".$phpVersion;
-    exec($command);
+function changePhpVersion($phpVersion): void {
+    var_dump(shell_exec("valet use php$phpVersion & echo 'citizen4'"));
 }
 
 enum LinkType {
@@ -44,7 +45,7 @@ class Php {
         $this->version = str_replace("php", "", basename($path));
         $this->name = 'Php '.$this->version;
         $this->path = $path;
-        if (str_contains(phpversion(), $this->version)) {
+        if (str_contains(Config::get("php_version"), $this->version)) {
             $this->is_used = true;
         }else{
             $this->is_used = false;
@@ -64,7 +65,7 @@ class Php {
             $html .= '<button class="btn btn-success" disabled style="opacity: 100">In Use</button>';
         }else{
             $html .= '<form action="" method="post" class="d-inline">
-                          <input hidden="hidden" name="changePhpVersion" value="'.$this->path.'">
+                          <input hidden="hidden" name="changePhpVersion" value="'.$this->version.'">
                           <button type="submit" class="btn btn-warning">Use</button>
                       </form>';
         }
@@ -194,6 +195,7 @@ class Config
     private static function createFile(): void
     {
         global $domain;
+        global $php_version;
         if(!file_exists(self::$filename)){
             self::$data = [
                 'exclude'=>[
@@ -214,6 +216,7 @@ class Config
                     'icon' => 'https://valetlinux.plus/favicon.ico',
                     'tld' => $domain
                 ],
+                'php_version' => $php_version,
             ];
             self::save();
         }
@@ -273,6 +276,19 @@ class Config
     {
         self::initData();
         self::$data['excludePath'] = array_diff(self::$data['excludePath'],[$path]);
+        self::save();
+    }
+    public static function setPhpVersion($phpVersion): void{
+        if(!file_exists(self::$filename)){
+            self::createFile();
+        }
+
+        if(null==self::$data){
+            self::initData();
+        }
+
+        self::initData();
+        self::$data['php_version'] = $phpVersion;
         self::save();
     }
 }
@@ -485,7 +501,7 @@ class Page{
 
         if ($_SESSION['hasManyPhp']) {
             $html .= ' <div class="float-end mx-1">
-                            <a href=".?php_version=1" class="btn '.(($_SESSION['php_version']??false) ? 'btn-primary' : 'btn-secondary').'">'.(($_SESSION['php_version']??false) ? 'Home' : 'PHP Version').'</a>
+                            <a href=".?php_version=1" class="text-nowrap btn '.(($_SESSION['php_version']??false) ? 'btn-primary' : 'btn-secondary').'">'.(($_SESSION['php_version']??false) ? 'Home' : 'PHP Version').'</a>
                         </div>';
         }
         $html .= '<div class="float-end mx-1">
@@ -676,9 +692,9 @@ if (isset($_POST['create'])) {
     exit();
 }
 if (isset($_POST['changePhpVersion'])) {
-    changePhpVersion($_POST['changePhpVersion'], $userPassword);
-    header( "Location: http://{$_SERVER['SERVER_NAME']}");
-    exit();
+    changePhpVersion($_POST['changePhpVersion']);
+//    header( "Location: http://{$_SERVER['SERVER_NAME']}");
+//    exit();
 }
 
 ?>
